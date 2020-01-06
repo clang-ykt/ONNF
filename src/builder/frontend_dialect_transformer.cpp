@@ -20,6 +20,8 @@
 #include <tuple>
 #include <map>
 
+#include  "boost/variant.hpp"
+
 #include "mlir/Analysis/Verifier.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/IR/Attributes.h"
@@ -206,277 +208,149 @@ private:
     frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
   }
 
-  template <typename T>
-  T get_attr_generic(onnx::NodeProto &node, std::string name,
-                     std::function<T(onnx::AttributeProto &)> attr_getter,
-                     T default_val) {
-    for (int i = 0; i < node.attribute_size(); ++i) {
-      auto attr = node.attribute(i);
-      if (attr.name() == name) {
-        return attr_getter(attr);
-      }
+  /* boost::variant should be replaced by std::variant when c++17 is used */
+
+  /* use lambda for visitor function*/
+  template <typename ReturnT, typename... Lambdas> struct lambda_visitor;
+
+  template <typename ReturnT, typename L1, typename... Lambdas>
+  struct lambda_visitor<ReturnT, L1, Lambdas...>
+      : public L1, public lambda_visitor<ReturnT, Lambdas...> {
+    using L1::operator();
+    using lambda_visitor<ReturnT, Lambdas...>::operator();
+    lambda_visitor(L1 l1, Lambdas... lambdas)
+        : L1(l1), lambda_visitor<ReturnT, Lambdas...>(lambdas...) {}
+  };
+
+  template <typename ReturnT, typename L1>
+  struct lambda_visitor<ReturnT, L1> : public L1,
+                                       public boost::static_visitor<ReturnT> {
+    using L1::operator();
+    lambda_visitor(L1 l1) : L1(l1), boost::static_visitor<ReturnT>() {}
+  };
+
+  template <typename ReturnT>
+  struct lambda_visitor<ReturnT> : public boost::static_visitor<ReturnT> {
+
+    lambda_visitor() : boost::static_visitor<ReturnT>() {}
+  };
+
+  template <typename ReturnT, typename... Lambdas>
+  lambda_visitor<ReturnT, Lambdas...> make_lambda_visitor(Lambdas... lambdas) {
+    return {lambdas...};
+  }
+
+  typedef boost::variant<int, std::vector<int>, float, std::vector<float>,
+                         std::string, std::vector<std::string>>
+      AttrValueType;
+
+  mlir::NamedAttribute mlir_attr_getter(std::string name, AttrValueType attr) {
+    auto visitor = make_lambda_visitor<mlir::NamedAttribute>(
+        [&](int const &r) {
+          auto attr_v = builder_.getI32IntegerAttr(r);
+          auto attr_output = builder_.getNamedAttr(name, attr_v);
+          return attr_output;
+        },
+        [&](std::vector<int> const &ints) {
+          auto dataType = mlir::RankedTensorType::get(
+              ints.size(), builder_.getIntegerType(32));
+          auto attr_v =
+              mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(ints));
+          auto attr_output = builder_.getNamedAttr(name, attr_v);
+          return attr_output;
+        },
+        [&](float const &r) {
+          auto attr_v = builder_.getF32FloatAttr(r);
+          auto attr_output = builder_.getNamedAttr(name, attr_v);
+          return attr_output;
+        },
+        [&](std::vector<float> const &floats) {
+          auto dataType =
+              mlir::RankedTensorType::get(floats.size(), builder_.getF32Type());
+          auto attr_v = mlir::DenseElementsAttr::get(
+              dataType, llvm::makeArrayRef(floats));
+          auto attr_output = builder_.getNamedAttr(name, attr_v);
+          return attr_output;
+        },
+        [&](std::string const &s) {
+          auto attr_v = builder_.getStringAttr(s);
+          auto attr_output = builder_.getNamedAttr(name, attr_v);
+          return attr_output;
+        },
+        [&](std::vector<std::string> const &r) {
+          assert(false &&  "type of attribute value is not implemented");
+          auto attr_v = builder_.getI32IntegerAttr(1);
+          auto attr_output = builder_.getNamedAttr(name, attr_v);
+          return attr_output;
+        });
+    return boost::apply_visitor(visitor, attr);
+  }
+
+  mlir::NamedAttribute mlir_attr_getter(onnx::AttributeProto &attr) {
+    switch (attr.type()) {
+    case onnx::AttributeProto::FLOAT: {
+      auto r = attr.f();
+      auto attr_v = builder_.getF32FloatAttr(r);
+      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
+      return attr_output;
     }
-    return default_val;
-  }
-
-  template <typename T>
-  T get_attr_generic(onnx::NodeProto &node, std::string name,
-                     std::function<T(onnx::AttributeProto &)> attr_getter) {
-    for (int i = 0; i < node.attribute_size(); ++i) {
-      auto attr = node.attribute(i);
-      if (attr.name() == name) {
-        return attr_getter(attr);
-      }
+    case onnx::AttributeProto::INT: {
+      auto r = attr.i();
+      auto attr_v = builder_.getI32IntegerAttr(r);
+      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
+      return attr_output;
     }
-    assert(false && "ONNX Node Attribute Not Found!");
-  }
-
-  auto get_attr_ints(onnx::NodeProto &node, std::string name,
-                     std::vector<int> default_val) {
-    std::function<std::vector<int>(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) {
-          std::vector<int> ints(attr.ints_size());
-          std::copy(attr.ints().begin(), attr.ints().end(), ints.begin());
-          return ints;
-        };
-    auto r = get_attr_generic(node, name, attr_getter, default_val);
-    auto dataType =
-        mlir::RankedTensorType::get(r.size(), builder_.getIntegerType(32));
-    auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
-    return attr_output;
-  }
-
-  auto get_attr_ints(onnx::NodeProto &node, std::string name) {
-    std::function<std::vector<int>(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) {
-          std::vector<int> ints(attr.ints_size());
-          std::copy(attr.ints().begin(), attr.ints().end(), ints.begin());
-          return ints;
-        };
-    auto r = get_attr_generic(node, name, attr_getter);
-    auto dataType =
-        mlir::RankedTensorType::get(r.size(), builder_.getIntegerType(32));
-    auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
-    return attr_output;
-  }
-
-  auto get_attr_floats(onnx::NodeProto &node, std::string name) {
-    std::function<std::vector<float>(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) {
-          std::vector<float> floats(attr.floats_size());
-          std::copy(attr.floats().begin(), attr.floats().end(), floats.begin());
-          return floats;
-        };
-    auto r = get_attr_generic(node, name, attr_getter);
-    auto dataType =
-        mlir::RankedTensorType::get(r.size(), builder_.getF32Type());
-    auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
-    return attr_output;
-  }
-
-  auto get_attr_floats(onnx::NodeProto &node, std::string name,
-                       std::vector<float> default_val) {
-    std::function<std::vector<float>(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) {
-          std::vector<float> floats(attr.floats_size());
-          std::copy(attr.floats().begin(), attr.floats().end(), floats.begin());
-          return floats;
-        };
-    auto r = get_attr_generic(node, name, attr_getter, default_val);
-    auto dataType =
-        mlir::RankedTensorType::get(r.size(), builder_.getF32Type());
-    auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
-    return attr_output;
-  }
-
-  auto get_attr_int(onnx::NodeProto &node, std::string name) {
-    std::function<int(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) { return attr.i(); };
-    int r = get_attr_generic(node, name, attr_getter);
-    auto attr_v = builder_.getI32IntegerAttr(r);
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
-    return attr_output;
-  }
-
-  auto get_attr_int(onnx::NodeProto &node, std::string name, int default_val) {
-    std::function<int(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) { return attr.i(); };
-    int r = get_attr_generic(node, name, attr_getter, default_val);
-    auto attr_v = builder_.getI32IntegerAttr(r);
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
-    return attr_output;
-  }
-
-  auto get_attr_float(onnx::NodeProto &node, std::string name) {
-    std::function<float(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) { return attr.f(); };
-    auto r = get_attr_generic(node, name, attr_getter);
-    auto attr_v = builder_.getF32FloatAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
-  }
-
-  auto get_attr_float(onnx::NodeProto &node, std::string name,
-                      float default_val) {
-    std::function<float(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) { return attr.f(); };
-    auto r = get_attr_generic(node, name, attr_getter, default_val);
-    auto attr_v = builder_.getF32FloatAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
-  }
-
-  auto get_attr_string(onnx::NodeProto &node, std::string name) {
-    std::function<std::string(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) { return attr.s(); };
-    auto r = get_attr_generic(node, name, attr_getter);
-    auto attr_v = builder_.getStringAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
-  }
-
-  auto get_attr_string(onnx::NodeProto &node, std::string name,
-                       std::string default_val) {
-    std::function<std::string(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) { return attr.s(); };
-    auto r = get_attr_generic(node, name, attr_getter, default_val);
-    auto attr_v = builder_.getStringAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
-  }
-
-  /*
-    auto get_attr_strings(onnx::NodeProto &node, std::string name) {
-      std::function<std::vector<std::string>(onnx::AttributeProto &)>
-    attr_getter =
-          [](onnx::AttributeProto &attr) {
-            std::vector<std::string> strings(attr.strings_size());
-            std::copy(attr.strings().begin(), attr.strings().end(),
-    strings.begin()); return strings;
-          };
-      auto r = get_attr_generic(node, name, attr_getter);
-      return r;
-      return builder_.getNamedAttr(aname, attr_v);
+    case onnx::AttributeProto::STRING: {
+      auto r = attr.s();
+      auto attr_v = builder_.getStringAttr(r);
+      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
+      return attr_output;
+    }
+    case onnx::AttributeProto::FLOATS: {
+      std::vector<float> floats(attr.floats_size());
+      std::copy(attr.floats().begin(), attr.floats().end(), floats.begin());
       auto dataType =
-          mlir::RankedTensorType::get(r.size(), builder_.get???Type());
-      auto attr_v = mlir::DenseElementsAttr::get(dataType,
-    llvm::makeArrayRef(r)); auto aname = node.op_type() + "." + name; auto
-    attr_output = builder_.getNamedAttr(aname, attr_v); return attr_output;
+          mlir::RankedTensorType::get(floats.size(), builder_.getF32Type());
+      auto attr_v =
+          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(floats));
+      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
+      return attr_output;
     }
-  */
-
-  auto get_default_ints(std::string default_str) {
-    std::vector<int> r;
-    auto start = default_str.find("{");
-    while (true) {
-      auto end = default_str.find(",", start + 1);
-      if (end == std::string::npos) {
-        end = default_str.find("}", start + 1);
-        if (end != std::string::npos && end > start + 1) {
-          r.push_back(std::stoi(default_str.substr(start + 1, end)));
-        }
-        break;
-      } else {
-        r.push_back(std::stoi(default_str.substr(start + 1, end)));
-      }
-      start = end + 1;
+    case onnx::AttributeProto::INTS: {
+      std::vector<int> ints(attr.ints_size());
+      std::copy(attr.ints().begin(), attr.ints().end(), ints.begin());
+      auto dataType =
+          mlir::RankedTensorType::get(ints.size(), builder_.getIntegerType(32));
+      auto attr_v =
+          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(ints));
+      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
+      return attr_output;
     }
-    return r;
+    default:
+      assert( false && "datatype for attribute is not implemented");
+      break;
+    }
   }
 
-  auto get_default_floats(std::string default_str) {
-    std::vector<float> r;
-    auto start = default_str.find("{");
-    while (true) {
-      auto end = default_str.find(",", start + 1);
-      if (end == std::string::npos) {
-        end = default_str.find("}", start + 1);
-        if (end != std::string::npos && end > start + 1) {
-          r.push_back(std::stof(default_str.substr(start + 1, end)));
-        }
-        break;
-      } else {
-        r.push_back(std::stof(default_str.substr(start + 1, end)));
-      }
-      start = end + 1;
+  std::vector<mlir::NamedAttribute> ImportNodeAttributes(
+      onnx::NodeProto node,
+      std::initializer_list<std::pair<std::string, AttrValueType>>
+          defaultAttrList) {
+    std::vector<mlir::NamedAttribute> attributes;
+    std::set<std::string> definedAttributeSet;
+    for (int i = 0; i < node.attribute_size(); ++i) {
+      auto attr = node.attribute(i);
+      auto output = mlir_attr_getter(attr);
+      attributes.push_back(output);
+      definedAttributeSet.insert(attr.name());
     }
-    return r;
-  }
-
-  auto get_default_strings(std::string default_str) {
-    std::vector<std::string> r;
-    auto start = default_str.find("{");
-    while (true) {
-      auto end = default_str.find(",", start + 1);
-      if (end == std::string::npos) {
-        end = default_str.find("}", start + 1);
-        if (end != std::string::npos && end > start + 1) {
-          r.push_back(default_str.substr(start + 1, end));
-        }
-        break;
-      } else {
-        r.push_back(default_str.substr(start + 1, end));
-      }
-      start = end + 1;
+    for (auto defaultValue : defaultAttrList) {
+      if (definedAttributeSet.find(defaultValue.first) ==
+          definedAttributeSet.end())
+        attributes.push_back(
+            mlir_attr_getter(defaultValue.first, defaultValue.second));
     }
-    return r;
-  }
-
-  onnx::TensorProto get_attr_tensor(onnx::NodeProto &node, std::string name) {
-    std::function<onnx::TensorProto(onnx::AttributeProto &)> attr_getter =
-        [](onnx::AttributeProto &attr) { return attr.t(); };
-    return get_attr_generic(node, name, attr_getter);
-  }
-
-  auto ImportNodeAttr(onnx::NodeProto node, std::string attr_name,
-                      std::string type_name, std::string default_str) {
-    if (default_str == "") {
-      if (type_name == "int") {
-        return get_attr_int(node, attr_name);
-      } else if (type_name == "float") {
-        return get_attr_float(node, attr_name);
-      } else if (type_name == "str") {
-        return get_attr_string(node, attr_name);
-      } else if (type_name == "ints") {
-        return get_attr_ints(node, attr_name);
-      } else if (type_name == "floats") {
-        return get_attr_floats(node, attr_name);
-      } else {
-        assert(
-            false &&
-            "Got an empty initializer or initializer for this "
-            "datatype is not implemented. Something is wrong.");
-      }
-    } else {
-      // with default value
-      if (type_name == "int") {
-        return get_attr_int(node, attr_name, std::stoi(default_str));
-      } else if (type_name == "float") {
-        return get_attr_float(node, attr_name, std::stof(default_str));
-      } else if (type_name == "str") {
-        return get_attr_string(node, attr_name, default_str);
-      } else if (type_name == "ints") {
-        return get_attr_ints(node, attr_name, get_default_ints(default_str));
-      } else if (type_name == "floats") {
-        return get_attr_floats(node, attr_name,
-                               get_default_floats(default_str));
-      } else {
-        assert(
-            false &&
-            "Got an empty initializer or initializer for this "
-            "datatype is not implemented. Something is wrong.");
-      }
-    }
+    return attributes;
   }
 
   void ImportNodeGeneric(onnx::NodeProto node) {
@@ -511,10 +385,10 @@ private:
    * default}
    */
   template <typename T>
-  void ImportNodeOneOut(
-      onnx::NodeProto node, int nIn, int nOut,
-      std::initializer_list<std::tuple<std::string, std::string, std::string>>
-          attrs) {
+  void
+  ImportNodeOneOut(onnx::NodeProto node, int nIn, int nOut,
+                   std::initializer_list<std::pair<std::string, AttrValueType>>
+                       defaultAttrList) {
     std::vector<mlir::Value *> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
@@ -528,22 +402,7 @@ private:
           mlir::UnrankedTensorType::get(builder_.getF32Type()));
     }
 
-    std::vector<mlir::NamedAttribute> attributes;
-    // for (auto [attr_name, attr_type, attr_default] : attrs) {
-    for (auto oneAttr : attrs) {
-      std::string attr_name;
-      std::string attr_type;
-      std::string attr_default;
-      std::tie(attr_name, attr_type, attr_default) = oneAttr;
-      if (attr_type != "") {
-        auto attr = ImportNodeAttr(node, attr_name, attr_type, attr_default);
-        attributes.push_back(attr);
-      } else {
-        // TODO: the attributes need special handling
-        // std::cout << "missing " << node.op_type() << " " << attr_name <<
-        // std::endl;
-      }
-    }
+    auto attributes = ImportNodeAttributes(node, defaultAttrList);
 
     llvm::StringRef OpName = node.op_type();
 
@@ -560,8 +419,8 @@ private:
   template <typename T>
   void ImportNodeMultipleOuts(
       onnx::NodeProto node, int nIn, int nOut,
-      std::initializer_list<std::tuple<std::string, std::string, std::string>>
-          attrs) {
+      std::initializer_list<std::pair<std::string, AttrValueType>>
+          defaultAttrList) {
     std::vector<mlir::Value *> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
@@ -575,21 +434,7 @@ private:
           mlir::UnrankedTensorType::get(builder_.getF32Type()));
     }
 
-    std::vector<mlir::NamedAttribute> attributes;
-    for (auto oneAttr : attrs) {
-      std::string attr_name;
-      std::string attr_type;
-      std::string attr_default;
-      std::tie(attr_name, attr_type, attr_default) = oneAttr;
-      if (attr_type != "") {
-        auto attr = ImportNodeAttr(node, attr_name, attr_type, attr_default);
-        attributes.push_back(attr);
-      } else {
-        // TODO: the attributes need special handling
-        // std::cout << "missing " << node.op_type() << " " << attr_name <<
-        // std::endl;
-      }
-    }
+    auto attributes = ImportNodeAttributes(node, defaultAttrList);
 
     llvm::StringRef OpName = node.op_type();
 
@@ -610,10 +455,11 @@ private:
    * c++ does not allow template specialization inside a class scope
    * a specialized function is used
    */
-  void ImportNodeConv(
-      onnx::NodeProto node, int nIn, int nOut,
-      std::initializer_list<std::tuple<std::string, std::string, std::string>>
-          attrs) {
+  void
+  ImportNodeConv(onnx::NodeProto node, int nIn, int nOut,
+                 std::initializer_list<std::pair<std::string, AttrValueType>>
+                     defaultAttrList) {
+
     // Conv has attribute dilations, kernel_shape, pads, the default value of
     // which  is determined by the shape of first argument. However, since the
     // shape is unknown now, these attributes can be not generated auto
@@ -626,9 +472,9 @@ private:
     // TODO: fix this after type inference
 
     if (node.input().size() == 1) {
-      ImportNodeOneOut<mlir::ONNXConv1Op>(node, nIn, nOut, attrs);
+      ImportNodeOneOut<mlir::ONNXConv1Op>(node, nIn, nOut, defaultAttrList);
     } else {
-      ImportNodeOneOut<mlir::ONNXConv3Op>(node, nIn, nOut, attrs);
+      ImportNodeOneOut<mlir::ONNXConv3Op>(node, nIn, nOut, defaultAttrList);
     }
   }
 
