@@ -1,3 +1,11 @@
+# ===------- test-same-as-file.py - Test for same-as-file directive -------===//
+#
+# Copyright 2019-2020 The IBM Research Authors.
+#
+# =============================================================================
+#
+# ===----------------------------------------------------------------------===//
+
 import unittest
 import os
 import sys

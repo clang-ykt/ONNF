@@ -1,3 +1,11 @@
+# ===----------------- directive.py - Directive Base Class ----------------===//
+#
+# Copyright 2019-2020 The IBM Research Authors.
+#
+# =============================================================================
+#
+# ===----------------------------------------------------------------------===//
+
 import re, ast
 from typing import List, Dict, Callable, Any, Pattern, Tuple
 
