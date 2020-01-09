@@ -40,7 +40,7 @@ def main(root_dir, exclude_dirs):
         if any([str(doc_file).startswith(exclude_dir) for exclude_dir in exclude_dirs]):
             continue
 
-        print("Checking {}...".format(doc_file))
+        logger.info("Checking {}...".format(doc_file))
         with ctx.open_doc(doc_file) as markdown_file:
             while not markdown_file.eof():
                 try_parse_and_handle_directive(ctx)

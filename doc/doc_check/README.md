@@ -2,25 +2,30 @@
 
 ### Goal
 
-DocCheck provides a set of utilities to enforce artifacts (e.g., code snippets or output of execution) used in the documentation is compatible and up-to-date with the state of software development they describe.
+DocCheck provides a set of utilities to enforce invariant properties of artifacts (e.g., code snippets or
+output of execution) presented in the software documentation. They can be used to ensure that these
+artifacts are always compatible and up-to-date with the state of software development.
 
 ### Directives
 
 DocCheck provides a set of directives that can be used in documentations to enforce desired invariants.
-A directive is a comment with a specific format/syntax to communicate the intent to check certain invariants to the DocCheck checker.
-Generally, a directive has the following syntax in markdown:
+A directive is a comment with a specific format/syntax to communicate the intent to check certain invariants to the 
+DocCheck checker. Generally, a directive has the following syntax in markdown:
 
 ```markdown
 [{directive}]: <> ({configuration})
 ```
 
-Where {directive} specifies the type of invariance checking intended and {configuration} expresses the specific parameters of this directive.
-In general, a directive configuration is expressed using a python dictionary literal, but special shorthand versions of each directive's configuration are supported.
-They should be documented in the comment of each directive individually.
+Where {directive} specifies the type of invariance checking intended and {configuration} expresses the specific 
+parameters of this directive. In general, a directive configuration is expressed using a python dictionary literal, 
+but special shorthands exist for each directive individually.
 
 ##### `same-as-file`:
 
-Use `same-as-file` directive to ensure that the code section following this directive is the same as a source file tested in some unit test.
+Use `same-as-file` directive to ensure that the code section following this directive is the same as a source file.
+This is useful primarily because testing code snippet in documentation directly is often impossible. However,
+unit tests can be written utilizing an exact copy of the code snippet content. We can use `same-as-file` directive 
+to ensure the code snippet is always the same as its copy used in some unit tests,
 
 `same-as-file` directive supports a convenient short-hand configuration format where the directive configuration can be fully specified using the name of the reference file to check against.
 For example, to ensure a code snippet is the same as a unit-tested file `reference.cpp`, use the following directive as shown in the documentation snippet:

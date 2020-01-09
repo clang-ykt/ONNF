@@ -6,7 +6,8 @@
 #
 # ===----------------------------------------------------------------------===//
 
-import re, ast
+import re
+import ast
 from typing import List, Dict, Callable, Any, Pattern, Tuple
 
 from doc_parser import failure, success, succeeded
@@ -17,21 +18,32 @@ ConfigParseResult = Tuple[str, Dict[str, Any]]
 
 
 class Directive(object):
+    """"""
     def __init__(self, ext_to_regexes: Dict[str, str],
-                 custom_parsers: List[Callable[[str, DirectiveConfigList],
+                 config_parsers: List[Callable[[str, DirectiveConfigList],
                                                ConfigParseResult]],
                  handler: Callable[[Dict[str, Any], DocCheckerCtx], None]):
+        """
+        :param ext_to_regexes: specify a regex expression to match the directive (for each file extension type).
+        :param config_parsers: specify a list of parsers to parse configuration. They will be invoked in order until one indicates parsing is successful.
+        :param handler: a function to perform the invariance check specified by the directive.
+        """
         self.ext_to_patterns: Dict[str, Pattern] = {}
         for ext, pattern in ext_to_regexes.items():
             self.ext_to_patterns[ext] = re.compile(pattern)
 
-        self.custom_parsers: List[Callable[[str, DirectiveConfigList],
-                                           ConfigParseResult]] = custom_parsers
+        self.config_parsers: List[Callable[[str, DirectiveConfigList],
+                                           ConfigParseResult]] = config_parsers
         self.handler = handler
 
     def try_parse_directive(
             self, ctx: DocCheckerCtx,
             directive_config: DirectiveConfigList) -> Tuple[str, Any]:
+        """
+        :param ctx: parser context.
+        :param directive_config: a list used to output parsed directive configuration.
+        :return: parse result.
+        """
         line = ctx.doc_file.next_non_empty_line()
         matches = self.ext_to_patterns[ctx.doc_file_ext()].findall(line)
         if len(matches) > 1:
@@ -39,7 +51,7 @@ class Directive(object):
 
         match = matches[0] if len(matches) else None
         if match:
-            for parser in self.custom_parsers:
+            for parser in self.config_parsers:
                 if succeeded(parser(match, directive_config)):
                     return success()
 
@@ -53,8 +65,17 @@ class Directive(object):
 
 def generic_config_parser(
         match: str, directive_config: DirectiveConfigList) -> Tuple[str, Any]:
+    """
+    Generic configuration parser.
+    Will return success if and only if configuration is specified as a python dictionary literal.
+
+    @param match: the content from which to parse the directive configuration.
+    @param directive_config: a list to output the parsed directive_config.
+    @return: parsing result.
+    """
     try:
         directive_config.append(ast.literal_eval(match))
         return success()
     except (SyntaxError, ValueError):
+        # If literal_eval failed, return parsing failure.
         return failure()

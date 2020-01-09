@@ -13,6 +13,7 @@ from directive import Directive, generic_config_parser
 
 
 def parse_code_section_delimiter(ctx):
+    assert ctx.doc_file_ext() == ".md"
     if not ctx.doc_file.next_non_empty_line().strip().startswith("```"):
         raise ValueError("Did not parse a code section delimiter")
 
@@ -20,6 +21,7 @@ def parse_code_section_delimiter(ctx):
 def try_parse_and_handle_directive(ctx):
     from directive_impl import same_as_file
 
+    # Register all directives.
     all_directives: List[Directive] = [
         Directive(same_as_file.ext_to_patterns, [generic_config_parser, same_as_file.parse], same_as_file.handle)
     ]
