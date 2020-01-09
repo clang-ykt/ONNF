@@ -3,11 +3,13 @@ import logging
 
 logger = logging.getLogger('doc-check')
 
-from parser import *
+from doc_parser import *
+from utils import *
 
 
-def parse(line):
-    return "ok", {'ref': line}
+def parse(line, directive_configs):
+    directive_configs.append({'ref': line})
+    return success()
 
 
 def handle(config, ctx):
@@ -40,4 +42,4 @@ def handle(config, ctx):
     parse_code_section_delimiter(ctx)
 
 
-ext_to_patterns = {'.md': '\[same-as-file\]: \<\> \(([^)]*)\)'}
+ext_to_patterns = {'.md': '\\[same-as-file\\]: <> \\(([^)]*)\\)'}

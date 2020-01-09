@@ -1,7 +1,7 @@
 from typing import List
 from utils import *
 
-from directive import Directive
+from directive import Directive, generic_config_parser
 
 
 def parse_code_section_delimiter(ctx):
@@ -13,7 +13,7 @@ def try_parse_and_handle_directive(ctx):
     from directive_impl import same_as_file
 
     all_directives: List[Directive] = [
-        Directive(same_as_file.ext_to_patterns, same_as_file.parse, same_as_file.handle)
+        Directive(same_as_file.ext_to_patterns, [generic_config_parser, same_as_file.parse], same_as_file.handle)
     ]
 
     for directive in all_directives:

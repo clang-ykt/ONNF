@@ -1,18 +1,20 @@
 import re, ast
 from typing import List, Dict, Callable, Any, Pattern, Tuple
 
-from parser import failure, success, succeeded
+from doc_parser import failure, success, succeeded
 from utils import DocCheckerCtx
 
+DirectiveConfigList = List[Dict[str, Any]]
+ConfigParseResult = Tuple[str, Dict[str, Any]]
 
 class Directive(object):
-    def __init__(self, ext_to_regexes: Dict[str, str], custom_parser: Callable[[str], Tuple[str, Dict[str, Any]]],
+    def __init__(self, ext_to_regexes: Dict[str, str], custom_parsers: List[Callable[[str, DirectiveConfigList], ConfigParseResult]],
                  handler: Callable[[Dict[str, Any], DocCheckerCtx], None]):
         self.ext_to_patterns: Dict[str, Pattern] = {}
         for ext, pattern in ext_to_regexes.items():
             self.ext_to_patterns[ext] = re.compile(pattern)
 
-        self.custom_parser: Callable[[str], Tuple[str, Dict[str, Any]]] = custom_parser
+        self.custom_parsers: List[Callable[[str, DirectiveConfigList], ConfigParseResult]] = custom_parsers
         self.handler = handler
 
     def try_parse_directive(self, ctx: DocCheckerCtx, directive_config: List[Dict[str, Any]]) -> Tuple[str, Any]:
@@ -23,16 +25,20 @@ class Directive(object):
 
         match = matches[0] if len(matches) else None
         if match:
-            try:
-                directive_config.append(ast.literal_eval(match))
-                return success()
-            except ValueError:
-                # Try using the custom parser first:
-                if succeeded(self.custom_parser(match)):
-                    directive_config.append(self.custom_parser(match)[1])
-                return success()
+            for parser in self.custom_parsers:
+                if succeeded(parser(match, directive_config)):
+                    return success()
+            return failure()
         else:
             return failure()
 
     def handle(self, config, ctx):
         self.handler(config, ctx)
+
+
+def generic_config_parser(match: str, directive_config: List[Dict[str, Any]]) -> Tuple[str, Any]:
+    try:
+        directive_config.append(ast.literal_eval(match))
+        return success()
+    except (SyntaxError, ValueError):
+        return failure()
