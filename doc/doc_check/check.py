@@ -1,4 +1,4 @@
-# ===-------------------- gen.py - Generate Documentation -----------------===//
+# ===-------------------- check.py - Documentation Checker ----------------===//
 #
 # Copyright 2019 The IBM Research Authors.
 #
@@ -15,7 +15,11 @@ from utils import setup_logger, DocCheckerCtx
 
 logger = setup_logger("doc-check")
 
-from parser import *
+# Make common utilities visible by adding them to system paths.
+doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(doc_check_base_dir)
+
+from doc_parser import try_parse_and_handle_directive
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -43,8 +47,5 @@ def main(root_dir, exclude_dirs):
 
 
 if __name__ == "__main__":
-    # Make common utilities visible by adding them to system paths.
-    sys.path.insert(1, os.path.join(sys.path[0], '..'))
-
     args = parser.parse_args()
     main(**vars(args))
