@@ -92,6 +92,8 @@ public:
         op->getName().getStringRef() != "onnx.Tanh" &&
         op->getName().getStringRef() != "onnx.Sinh" &&
         op->getName().getStringRef() != "onnx.Cosh" &&
+        op->getName().getStringRef() != "onnx.Cos" &&
+        op->getName().getStringRef() != "onnx.Log" &&
         op->getName().getStringRef() != "onnx.Sigmoid" &&
         op->getName().getStringRef() != "onnx.HardSigmoid" &&
         op->getName().getStringRef() != "onnx.Elu" &&
@@ -113,7 +115,8 @@ public:
         op->getName().getStringRef() != "onnx.MatMul" &&
         op->getName().getStringRef() != "onnx.Gemm" &&
         op->getName().getStringRef() != "onnx.FullGemm" &&
-        op->getName().getStringRef() != "onnx.Reshape")
+        op->getName().getStringRef() != "onnx.Reshape" &&
+        op->getName().getStringRef() != "onnx.Transpose")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {
       return !result_type.isa<RankedTensorType>();
