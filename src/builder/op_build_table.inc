@@ -41,7 +41,7 @@
          {"auto_pad", "NOTSET"}
         ,{"ceil_mode", 0}
         ,{"count_include_pad", 0}
-        ,{"kernel_shape", std::vector<int> {}}
+        ,{"kernel_shape", std::vector<int64_t> {}}
       });
     }else if (OpName == "BatchNormalization") {
        ImportNodeMultipleOuts<mlir::ONNXBatchNormalizationOp>(node, 5, 5, {
@@ -265,7 +265,7 @@
        ImportNodeMultipleOuts<mlir::ONNXMaxPoolOp>(node, 1, 2, {
          {"auto_pad", "NOTSET"}
         ,{"ceil_mode", 0}
-        ,{"kernel_shape", std::vector<int> {}}
+        ,{"kernel_shape", std::vector<int64_t> {}}
         ,{"storage_order", 0}
       });
     }else if (OpName == "MaxRoiPool") {
@@ -280,7 +280,7 @@
       });
     }else if (OpName == "MeanVarianceNormalization") {
        ImportNodeOneOut<mlir::ONNXMeanVarianceNormalizationOp>(node, 1, 1, {
-         {"axes", std::vector<int>{0, 2, 3}}
+         {"axes", std::vector<int64_t>{0, 2, 3}}
       });
     }else if (OpName == "Min") {
        ImportNodeOneOut<mlir::ONNXMinOp>(node, 1, 1, {
@@ -577,7 +577,7 @@
       });
     }else if (OpName == "Unsqueeze") {
        ImportNodeOneOut<mlir::ONNXUnsqueezeOp>(node, 1, 1, {
-         {"axes", std::vector<int> {}}
+         {"axes", std::vector<int64_t> {}}
       });
     }else if (OpName == "Upsample") {
        ImportNodeOneOut<mlir::ONNXUpsampleOp>(node, 2, 1, {

@@ -273,6 +273,7 @@ private:
 
   std::pair<std::string, AttrValueType>
   convertAttributeProtoToNameValuePair(onnx::AttributeProto &attr) {
+    AttrValueType val;
     switch (attr.type()) {
     case onnx::AttributeProto::FLOAT:
       return std::make_pair(attr.name(), AttrValueType(attr.f()));
@@ -281,13 +282,13 @@ private:
     case onnx::AttributeProto::STRING:
       return std::make_pair(attr.name(), AttrValueType(attr.s()));
     case onnx::AttributeProto::FLOATS:
-      return std::make_pair(
-          attr.name(), AttrValueType(std::vector<float>(attr.floats().begin(),
-                                                        attr.floats().end())));
+      val = AttrValueType(
+          std::vector<float>(attr.floats().begin(), attr.floats().end()));
+      return std::make_pair(attr.name(), val);
     case onnx::AttributeProto::INTS:
-      return std::make_pair(
-          attr.name(), AttrValueType(std::vector<int64_t>(attr.ints().begin(),
-                                                          attr.ints().end())));
+      val = AttrValueType(
+          std::vector<int64_t>(attr.ints().begin(), attr.ints().end()));
+      return std::make_pair(attr.name(), val);
     default:
       assert(false && "datatype for attribute is not implemented");
       break;
