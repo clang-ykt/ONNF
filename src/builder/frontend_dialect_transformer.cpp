@@ -210,8 +210,9 @@ private:
     frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
   }
 
-  typedef bstd::variant<int, std::vector<int>, float, std::vector<float>,
-                        std::string, std::vector<std::string>>
+  typedef bstd::variant<int64_t, std::vector<int64_t>, float,
+                        std::vector<float>, std::string,
+                        std::vector<std::string>>
       AttrValueType;
 
   struct ONNXAttrVisitor {
@@ -224,12 +225,12 @@ private:
     // Name of the attribute being inspected.
     std::string _name;
 
-    mlir::NamedAttribute operator()(int const &r) {
+    mlir::NamedAttribute operator()(int64_t const &r) {
       auto val = _builder.getI32IntegerAttr(r);
       return _builder.getNamedAttr(_name, val);
     }
 
-    mlir::NamedAttribute operator()(std::vector<int> const &ints) {
+    mlir::NamedAttribute operator()(std::vector<int64_t> const &ints) {
       auto dataType =
           mlir::RankedTensorType::get(ints.size(), _builder.getIntegerType(32));
       auto attr_v =
@@ -264,51 +265,29 @@ private:
     };
   };
 
-  mlir::NamedAttribute mlir_attr_getter(std::string name, AttrValueType attr) {
-    auto visitor = ONNXAttrVisitor(name, builder_);
-    return mpark::visit(visitor, attr);
+  mlir::NamedAttribute convertNameValuePairToNamedAttribute(
+      std::pair<std::string, AttrValueType> nameAndVal) {
+    auto visitor = ONNXAttrVisitor(nameAndVal.first, builder_);
+    return mpark::visit(visitor, nameAndVal.second);
   }
 
-  mlir::NamedAttribute mlir_attr_getter(onnx::AttributeProto &attr) {
+  std::pair<std::string, AttrValueType>
+  convertAttributeProtoToNameValuePair(onnx::AttributeProto &attr) {
     switch (attr.type()) {
-    case onnx::AttributeProto::FLOAT: {
-      auto r = attr.f();
-      auto attr_v = builder_.getF32FloatAttr(r);
-      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
-      return attr_output;
-    }
-    case onnx::AttributeProto::INT: {
-      auto r = attr.i();
-      auto attr_v = builder_.getI32IntegerAttr(r);
-      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
-      return attr_output;
-    }
-    case onnx::AttributeProto::STRING: {
-      auto r = attr.s();
-      auto attr_v = builder_.getStringAttr(r);
-      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
-      return attr_output;
-    }
-    case onnx::AttributeProto::FLOATS: {
-      std::vector<float> floats(attr.floats_size());
-      std::copy(attr.floats().begin(), attr.floats().end(), floats.begin());
-      auto dataType =
-          mlir::RankedTensorType::get(floats.size(), builder_.getF32Type());
-      auto attr_v =
-          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(floats));
-      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
-      return attr_output;
-    }
-    case onnx::AttributeProto::INTS: {
-      std::vector<int> ints(attr.ints_size());
-      std::copy(attr.ints().begin(), attr.ints().end(), ints.begin());
-      auto dataType =
-          mlir::RankedTensorType::get(ints.size(), builder_.getIntegerType(32));
-      auto attr_v =
-          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(ints));
-      auto attr_output = builder_.getNamedAttr(attr.name(), attr_v);
-      return attr_output;
-    }
+    case onnx::AttributeProto::FLOAT:
+      return std::make_pair(attr.name(), AttrValueType(attr.f()));
+    case onnx::AttributeProto::INT:
+      return std::make_pair(attr.name(), AttrValueType(attr.i()));
+    case onnx::AttributeProto::STRING:
+      return std::make_pair(attr.name(), AttrValueType(attr.s()));
+    case onnx::AttributeProto::FLOATS:
+      return std::make_pair(
+          attr.name(), AttrValueType(std::vector<float>(attr.floats().begin(),
+                                                        attr.floats().end())));
+    case onnx::AttributeProto::INTS:
+      return std::make_pair(
+          attr.name(), AttrValueType(std::vector<int64_t>(attr.ints().begin(),
+                                                          attr.ints().end())));
     default:
       assert(false && "datatype for attribute is not implemented");
       break;
@@ -323,15 +302,14 @@ private:
     std::set<std::string> definedAttributeSet;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
-      auto output = mlir_attr_getter(attr);
-      attributes.push_back(output);
+      auto nameValPair = convertAttributeProtoToNameValuePair(attr);
+      attributes.push_back(convertNameValuePairToNamedAttribute(nameValPair));
       definedAttributeSet.insert(attr.name());
     }
-    for (auto defaultValue : defaultAttrList) {
-      if (definedAttributeSet.find(defaultValue.first) ==
+    for (auto defaultAttr : defaultAttrList) {
+      if (definedAttributeSet.find(defaultAttr.first) ==
           definedAttributeSet.end())
-        attributes.push_back(
-            mlir_attr_getter(defaultValue.first, defaultValue.second));
+        attributes.push_back(convertNameValuePairToNamedAttribute(defaultAttr));
     }
     return attributes;
   }
