@@ -231,12 +231,8 @@ private:
     }
 
     mlir::NamedAttribute operator()(std::vector<int64_t> const &ints) {
-      auto dataType =
-          mlir::RankedTensorType::get(ints.size(), _builder.getIntegerType(32));
-      auto attr_v =
-          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(ints));
-      auto attr_output = _builder.getNamedAttr(_name, attr_v);
-      return attr_output;
+      auto val = _builder.getI64ArrayAttr(ints);
+      return _builder.getNamedAttr(_name, val);
     }
 
     mlir::NamedAttribute operator()(float const &r) {
@@ -245,12 +241,8 @@ private:
     }
 
     mlir::NamedAttribute operator()(std::vector<float> const &floats) {
-      auto dataType =
-          mlir::RankedTensorType::get(floats.size(), _builder.getF32Type());
-      auto attr_v =
-          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(floats));
-      auto attr_output = _builder.getNamedAttr(_name, attr_v);
-      return attr_output;
+      auto val = _builder.getF32ArrayAttr(floats);
+      return _builder.getNamedAttr(_name, val);
     }
 
     mlir::NamedAttribute operator()(std::string const &s) {
