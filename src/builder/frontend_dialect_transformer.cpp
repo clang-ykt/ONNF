@@ -1,6 +1,6 @@
 //===- frontend_dialect_transformer.cpp - MLIR Operations -----------------===//
 //
-// Copyright 2019 The IBM Research Authors. 
+// Copyright 2019 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,13 +14,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <map>
 #include <numeric>
 #include <regex>
 #include <string>
 #include <tuple>
-#include <map>
 
-#include  "boost/variant.hpp"
+// Using backported variant.
+// bstd = backported standard library.
+#include <mpark/variant.hpp>
+namespace bstd = mpark;
 
 #include "mlir/Analysis/Verifier.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
@@ -44,15 +47,15 @@
 namespace onnf {
 namespace {
 
-void replaceAll(
-    std::string& str, const std::string& from, const std::string& to) {
+void replaceAll(std::string &str, const std::string &from,
+                const std::string &to) {
   if (from.empty())
     return;
   size_t start_pos = 0;
   while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
     str.replace(start_pos, from.length(), to);
-    start_pos += to.length();  // In case 'to' contains 'from', like replacing
-                               // 'x' with 'yx'
+    start_pos += to.length(); // In case 'to' contains 'from', like replacing
+                              // 'x' with 'yx'
   }
 }
 
@@ -75,8 +78,8 @@ struct OnnxOnnfSymbolMapping {
    */
   mlir::Value GetTensorByOnnxName(std::string name) {
     assert(onnx_name2onnf_tensor.find(legalize_name(name)) !=
-                            onnx_name2onnf_tensor.end() &&
-                        "Tensor not found");
+               onnx_name2onnf_tensor.end() &&
+           "Tensor not found");
     return onnx_name2onnf_tensor.at(legalize_name(name));
   }
 
@@ -87,7 +90,7 @@ struct OnnxOnnfSymbolMapping {
    */
   void AddMapping(std::string name, mlir::Value tensor) {
     assert(onnx_name2onnf_tensor.count(legalize_name(name)) == 0 &&
-                        "Tensor already exists.");
+           "Tensor already exists.");
     onnx_name2onnf_tensor.emplace(legalize_name(name), tensor);
   }
 
@@ -128,32 +131,32 @@ private:
   // <onnf-build-folder>/third_party/onnx/onnx/onnx.pb.h
   mlir::Type TypeConvert(onnx::TensorProto_DataType intype) {
     switch (intype) {
-      case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
-        return builder_.getF16Type();
-      case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
-        return builder_.getF32Type();
-      case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
-        return builder_.getF64Type();
-      case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-      case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-        return builder_.getIntegerType(8);
-      case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-      case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-        return builder_.getIntegerType(16);
-      case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-      case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-        return builder_.getIntegerType(32);
-      case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-      case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-        return builder_.getIntegerType(64);
-      case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
-        return builder_.getI1Type();
-      case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-      case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
-      case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
-      case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
-        assert(false && "Unsupported data type encountered.");
-        return nullptr;
+    case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
+      return builder_.getF16Type();
+    case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
+      return builder_.getF32Type();
+    case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
+      return builder_.getF64Type();
+    case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
+    case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
+      return builder_.getIntegerType(8);
+    case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
+    case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
+      return builder_.getIntegerType(16);
+    case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
+    case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
+      return builder_.getIntegerType(32);
+    case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
+    case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
+      return builder_.getIntegerType(64);
+    case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
+      return builder_.getI1Type();
+    case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
+    case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
+    case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
+    case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
+      assert(false && "Unsupported data type encountered.");
+      return nullptr;
     }
   }
 
@@ -171,8 +174,8 @@ private:
     for (int i = 0; i < shape_proto.dim_size(); i++) {
       if (shape_proto.dim()[i].dim_value()) {
         int dim_numeric_size = shape_proto.dim()[i].dim_value();
-        assert(
-            dim_numeric_size != 0 && "Parsed an input tensor with a dimension size of zero");
+        assert(dim_numeric_size != 0 &&
+               "Parsed an input tensor with a dimension size of zero");
         if (dim_numeric_size > 0) {
           dims.push_back(dim_numeric_size);
         } else { // If dim_value < 0, then dim is parametric.
@@ -202,88 +205,68 @@ private:
   void ImportInputTensorSymbol(const onnx::ValueInfoProto &input,
                                mlir::Value symbol) {
     auto input_tensor_legalized_name = legalize_name(input.name());
-    assert(
-        !frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
-        "Found duplicate legalized input tensor names.");
+    assert(!frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
+           "Found duplicate legalized input tensor names.");
     frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
   }
 
-  /* boost::variant should be replaced by std::variant when c++17 is used */
-
-  /* use lambda for visitor function*/
-  template <typename ReturnT, typename... Lambdas> struct lambda_visitor;
-
-  template <typename ReturnT, typename L1, typename... Lambdas>
-  struct lambda_visitor<ReturnT, L1, Lambdas...>
-      : public L1, public lambda_visitor<ReturnT, Lambdas...> {
-    using L1::operator();
-    using lambda_visitor<ReturnT, Lambdas...>::operator();
-    lambda_visitor(L1 l1, Lambdas... lambdas)
-        : L1(l1), lambda_visitor<ReturnT, Lambdas...>(lambdas...) {}
-  };
-
-  template <typename ReturnT, typename L1>
-  struct lambda_visitor<ReturnT, L1> : public L1,
-                                       public boost::static_visitor<ReturnT> {
-    using L1::operator();
-    lambda_visitor(L1 l1) : L1(l1), boost::static_visitor<ReturnT>() {}
-  };
-
-  template <typename ReturnT>
-  struct lambda_visitor<ReturnT> : public boost::static_visitor<ReturnT> {
-
-    lambda_visitor() : boost::static_visitor<ReturnT>() {}
-  };
-
-  template <typename ReturnT, typename... Lambdas>
-  lambda_visitor<ReturnT, Lambdas...> make_lambda_visitor(Lambdas... lambdas) {
-    return {lambdas...};
-  }
-
-  typedef boost::variant<int, std::vector<int>, float, std::vector<float>,
-                         std::string, std::vector<std::string>>
+  typedef bstd::variant<int, std::vector<int>, float, std::vector<float>,
+                        std::string, std::vector<std::string>>
       AttrValueType;
 
+  struct ONNXAttrVisitor {
+    ONNXAttrVisitor(std::string name, mlir::OpBuilder builder)
+        : _builder(builder), _name(name) {}
+
+    // Op builder.
+    mlir::OpBuilder _builder;
+
+    // Name of the attribute being inspected.
+    std::string _name;
+
+    mlir::NamedAttribute operator()(int const &r) {
+      auto val = _builder.getI32IntegerAttr(r);
+      return _builder.getNamedAttr(_name, val);
+    }
+
+    mlir::NamedAttribute operator()(std::vector<int> const &ints) {
+      auto dataType =
+          mlir::RankedTensorType::get(ints.size(), _builder.getIntegerType(32));
+      auto attr_v =
+          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(ints));
+      auto attr_output = _builder.getNamedAttr(_name, attr_v);
+      return attr_output;
+    }
+
+    mlir::NamedAttribute operator()(float const &r) {
+      auto val = _builder.getF32FloatAttr(r);
+      return _builder.getNamedAttr(_name, val);
+    }
+
+    mlir::NamedAttribute operator()(std::vector<float> const &floats) {
+      auto dataType =
+          mlir::RankedTensorType::get(floats.size(), _builder.getF32Type());
+      auto attr_v =
+          mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(floats));
+      auto attr_output = _builder.getNamedAttr(_name, attr_v);
+      return attr_output;
+    }
+
+    mlir::NamedAttribute operator()(std::string const &s) {
+      auto val = _builder.getStringAttr(s);
+      return _builder.getNamedAttr(_name, val);
+    }
+
+    mlir::NamedAttribute operator()(std::vector<std::string> const &r) {
+      assert(false && "type of attribute value is not implemented");
+      auto val = _builder.getI32IntegerAttr(1);
+      return _builder.getNamedAttr(_name, val);
+    };
+  };
+
   mlir::NamedAttribute mlir_attr_getter(std::string name, AttrValueType attr) {
-    auto visitor = make_lambda_visitor<mlir::NamedAttribute>(
-        [&](int const &r) {
-          auto attr_v = builder_.getI32IntegerAttr(r);
-          auto attr_output = builder_.getNamedAttr(name, attr_v);
-          return attr_output;
-        },
-        [&](std::vector<int> const &ints) {
-          auto dataType = mlir::RankedTensorType::get(
-              ints.size(), builder_.getIntegerType(32));
-          auto attr_v =
-              mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(ints));
-          auto attr_output = builder_.getNamedAttr(name, attr_v);
-          return attr_output;
-        },
-        [&](float const &r) {
-          auto attr_v = builder_.getF32FloatAttr(r);
-          auto attr_output = builder_.getNamedAttr(name, attr_v);
-          return attr_output;
-        },
-        [&](std::vector<float> const &floats) {
-          auto dataType =
-              mlir::RankedTensorType::get(floats.size(), builder_.getF32Type());
-          auto attr_v = mlir::DenseElementsAttr::get(
-              dataType, llvm::makeArrayRef(floats));
-          auto attr_output = builder_.getNamedAttr(name, attr_v);
-          return attr_output;
-        },
-        [&](std::string const &s) {
-          auto attr_v = builder_.getStringAttr(s);
-          auto attr_output = builder_.getNamedAttr(name, attr_v);
-          return attr_output;
-        },
-        [&](std::vector<std::string> const &r) {
-          assert(false &&  "type of attribute value is not implemented");
-          auto attr_v = builder_.getI32IntegerAttr(1);
-          auto attr_output = builder_.getNamedAttr(name, attr_v);
-          return attr_output;
-        });
-    return boost::apply_visitor(visitor, attr);
+    auto visitor = ONNXAttrVisitor(name, builder_);
+    return mpark::visit(visitor, attr);
   }
 
   mlir::NamedAttribute mlir_attr_getter(onnx::AttributeProto &attr) {
@@ -327,7 +310,7 @@ private:
       return attr_output;
     }
     default:
-      assert( false && "datatype for attribute is not implemented");
+      assert(false && "datatype for attribute is not implemented");
       break;
     }
   }
@@ -385,10 +368,10 @@ private:
    * default}
    */
   template <typename T>
-  void ImportNodeOneOut(
-      onnx::NodeProto node, int nIn, int nOut,
-      std::initializer_list<std::tuple<std::string, AttrValueType>>
-          defaultAttrList) {
+  void
+  ImportNodeOneOut(onnx::NodeProto node, int nIn, int nOut,
+                   std::initializer_list<std::pair<std::string, AttrValueType>>
+                       defaultAttrList) {
     std::vector<mlir::Value> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
@@ -419,8 +402,8 @@ private:
   template <typename T>
   void ImportNodeMultipleOuts(
       onnx::NodeProto node, int nIn, int nOut,
-      std::initializer_list<std::tuple<std::string, AttrValueType>>
-          attrs) {
+      std::initializer_list<std::pair<std::string, AttrValueType>>
+          defaultAttrList) {
     std::vector<mlir::Value> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
@@ -520,9 +503,8 @@ private:
                           llvm::SmallVectorImpl<mlir::Type> &ret_types,
                           llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
     auto output_tensor_legalized_name = legalize_name(output.name());
-    assert(
-        frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
-        "Output tensor not found");
+    assert(frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
+           "Output tensor not found");
 
     auto tensor_val =
         frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
@@ -581,9 +563,9 @@ private:
     funcType = builder_.getFunctionType(arg_types, ret_types);
     mainFunc.setType(funcType);
   }
-};  // FrontendGenImpl class
-}  // namespace
-}  // namespace onnf
+}; // FrontendGenImpl class
+} // namespace
+} // namespace onnf
 
 namespace onnf {
 
@@ -606,4 +588,4 @@ void ImportFrontendModelFile(std::string model_fname,
   FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model);
 }
-}  // namespace onnf
+} // namespace onnf
