@@ -76,7 +76,7 @@ struct OnnxOnnfSymbolMapping {
    *  @param name onnx tensor name.
    *  @return onnf tensor corresponding to `name`.
    */
-  mlir::Value GetTensorByOnnxName(std::string name) {
+  mlir::Value GetTensorByOnnxName(const std::string &name) {
     assert(onnx_name2onnf_tensor.find(legalize_name(name)) !=
                onnx_name2onnf_tensor.end() &&
            "Tensor not found");
@@ -88,7 +88,7 @@ struct OnnxOnnfSymbolMapping {
    *  @param name onnx tensor name.
    *  @param tensor MLIR Value  pointer.
    */
-  void AddMapping(std::string name, mlir::Value tensor) {
+  void AddMapping(const std::string &name, mlir::Value tensor) {
     assert(onnx_name2onnf_tensor.count(legalize_name(name)) == 0 &&
            "Tensor already exists.");
     onnx_name2onnf_tensor.emplace(legalize_name(name), tensor);
@@ -129,8 +129,8 @@ private:
   // Convert type to MLIR type.
   // A complete list of types can be found in:
   // <onnf-build-folder>/third_party/onnx/onnx/onnx.pb.h
-  mlir::Type TypeConvert(onnx::TensorProto_DataType intype) {
-    switch (intype) {
+  mlir::Type convertONNXTypeToMLIRType(onnx::TensorProto_DataType onnxType) {
+    switch (onnxType) {
     case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
       return builder_.getF16Type();
     case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
@@ -189,7 +189,7 @@ private:
     }
 
     mlir::Type elementType =
-        TypeConvert(input.type().tensor_type().elem_type());
+        convertONNXTypeToMLIRType(input.type().tensor_type().elem_type());
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     arg_types.emplace_back(
         mlir::RankedTensorType::get(tensor_dims, elementType));
@@ -288,7 +288,7 @@ private:
   }
 
   std::vector<mlir::NamedAttribute> ImportNodeAttributes(
-      const onnx::NodeProto& node,
+      const onnx::NodeProto &node,
       std::initializer_list<std::pair<std::string, AttrValueType>>
           defaultAttrList) {
     std::vector<mlir::NamedAttribute> attributes;
@@ -299,7 +299,7 @@ private:
       attributes.push_back(convertNameValuePairToNamedAttribute(nameValPair));
       definedAttributeSet.insert(attr.name());
     }
-    for (const auto& defaultAttr : defaultAttrList) {
+    for (const auto &defaultAttr : defaultAttrList) {
       if (definedAttributeSet.find(defaultAttr.first) ==
           definedAttributeSet.end())
         attributes.push_back(convertNameValuePairToNamedAttribute(defaultAttr));
@@ -307,9 +307,9 @@ private:
     return attributes;
   }
 
-  void ImportNodeGeneric(const onnx::NodeProto& node) {
+  void ImportNodeGeneric(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
-    for (const auto& item : node.input()) {
+    for (const auto &item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
@@ -340,11 +340,11 @@ private:
    */
   template <typename T>
   void
-  ImportNodeOneOut(const onnx::NodeProto& node, int nIn, int nOut,
+  ImportNodeOneOut(const onnx::NodeProto &node, int nIn, int nOut,
                    std::initializer_list<std::pair<std::string, AttrValueType>>
                        defaultAttrList) {
     std::vector<mlir::Value> inputs;
-    for (const auto& item : node.input()) {
+    for (const auto &item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
@@ -372,11 +372,11 @@ private:
 
   template <typename T>
   void ImportNodeMultipleOuts(
-      const onnx::NodeProto& node, int nIn, int nOut,
+      const onnx::NodeProto &node, int nIn, int nOut,
       std::initializer_list<std::pair<std::string, AttrValueType>>
           defaultAttrList) {
     std::vector<mlir::Value> inputs;
-    for (const auto& item : node.input()) {
+    for (const auto &item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
@@ -432,9 +432,9 @@ private:
     }
   }
 
-  void ImportNode(const onnx::NodeProto& node) {
+  void ImportNode(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
-    for (const auto& item : node.input()) {
+    for (const auto &item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
