@@ -10,7 +10,7 @@ jobs:
           command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
       # Use cached mlir installation if possible.
       - restore_cache:
-          key: V2-LLVM-PROJECT-{{ arch }}
+          key: V3-LLVM-PROJECT-{{ arch }}
       - run:
           name: Install MLIR
           command: |
@@ -21,7 +21,7 @@ jobs:
               source utils/install-mlir.sh
             fi
       - save_cache:
-          key: V2-LLVM-PROJECT-{{ arch }}
+          key: V3-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - checkout:
