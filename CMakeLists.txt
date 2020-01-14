@@ -28,3 +28,5 @@ add_subdirectory(src)
 add_subdirectory(doc)
 add_subdirectory(test)
 
+message(STATUS "CXX Path")
+message(STATUS ${CMAKE_CXX_COMPILER})

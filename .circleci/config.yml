@@ -38,5 +38,11 @@ jobs:
           name: Run DocCheck
           command: cd ONNF/build && cmake --build . --target check-doc
       - run:
+          name: Run End-To-End Tests
+          command: |
+            pip install onnx
+            cd ONNF/build
+            cmake --build . --target run-onnx-backend-test
+      - run:
           name: Print the Current Time
           command: date
