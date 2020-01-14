@@ -8,6 +8,9 @@ jobs:
       - run:
           name: Installing GCC, CMake, Ninja, Protobuf
           command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
+      - run:
+          name: Sanity check
+          command: ls
       # Use cached mlir installation if possible.
       - restore_cache:
           key: V3-LLVM-PROJECT-{{ arch }}
