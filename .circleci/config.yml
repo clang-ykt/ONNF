@@ -41,7 +41,7 @@ jobs:
           name: Run End-To-End Tests
           command: |
             python --version
-            sudo pip install onnx
+            sudo pip -v install onnx
             cd ONNF/build
             cmake --build . --target run-onnx-backend-test
       - run:
