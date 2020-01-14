@@ -40,7 +40,8 @@ jobs:
       - run:
           name: Run End-To-End Tests
           command: |
-            pip -e ./ONNF/third_party/onnx
+            python --version
+            pip install -e ./ONNF/third_party/onnx
             cd ONNF/build
             cmake --build . --target run-onnx-backend-test
       - run:
