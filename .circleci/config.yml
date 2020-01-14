@@ -8,9 +8,13 @@ jobs:
       - run:
           name: Installing GCC, CMake, Ninja, Protobuf
           command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
+      - checkout:
+          path: ONNF
       - run:
-          name: Sanity check
-          command: ls
+          name: Pull Submodules
+          command: |
+            cd ONNF
+            git submodule update --init --recursive
       # Use cached mlir installation if possible.
       - restore_cache:
           key: V3-LLVM-PROJECT-{{ arch }}
@@ -29,13 +33,6 @@ jobs:
           key: V3-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
-      - checkout:
-          path: ONNF
-      - run:
-          name: Pull Submodules
-          command: |
-            cd ONNF
-            git submodule update --init --recursive
       - run:
           name: Install ONNF
           command: source ONNF/utils/install-onnf.sh
