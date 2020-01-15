@@ -42,6 +42,7 @@ cmake ..
 cmake --build . --target onnf
 
 # Run FileCheck tests:
+export LIT_OPTS=-v
 cmake --build . --target check-mlir-lit
 ```
 
