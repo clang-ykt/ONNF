@@ -6,14 +6,14 @@ jobs:
 
     steps:
       - run:
+          name: Installing GCC, CMake, Ninja, Protobuf
+          command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
+      - run:
           name: Install ONNX
           command: |
             git clone --recursive https://github.com/onnx/onnx.git
             cd onnx
             python setup.py install
-      - run:
-          name: Installing GCC, CMake, Ninja, Protobuf
-          command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
       - checkout:
           path: ONNF
       - run:
