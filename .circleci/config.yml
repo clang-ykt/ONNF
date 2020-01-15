@@ -13,7 +13,7 @@ jobs:
           command: |
             git clone --recursive https://github.com/onnx/onnx.git
             cd onnx
-            sudo python setup.py install
+            sudo python setup.py install -j4
       - checkout:
           path: ONNF
       - run:
