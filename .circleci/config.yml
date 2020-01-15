@@ -3,6 +3,7 @@ jobs:
   build:
     docker:
       - image: circleci/python
+    resource_class: medium+
 
     steps:
       - run:
@@ -13,7 +14,7 @@ jobs:
           command: |
             git clone --recursive https://github.com/onnx/onnx.git
             cd onnx
-            CMAKE_ARGS=-j2 sudo python setup.py install
+            CMAKE_ARGS=-j2 sudo python setup.py build
       - checkout:
           path: ONNF
       - run:
