@@ -42,7 +42,7 @@ class DummyBackend(onnx.backend.base.Backend):
                        stdout=subprocess.PIPE)
         # Generate shared library from object file, linking with c runtime.
         subprocess.run([
-            CXX, "-shared", "model.o", "-o", "model.so", "-L" + RUNTIME_DIR,
+            CXX, "-shared", "-fPIC", "model.o", "-o", "model.so", "-L" + RUNTIME_DIR,
             "-lcruntime"
         ],
                        stdout=subprocess.PIPE)
