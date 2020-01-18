@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
   if (mlir::failed(pm.run(*module)))
     return 4;
 
-  module->dump();
+//  module->dump();
 
   // Write LLVM bitcode to disk.
   if (emissionTarget == EmitLLVMBC)
