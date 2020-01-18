@@ -38,8 +38,8 @@ class DummyBackend(onnx.backend.base.Backend):
         # Call frontend to process temp_model.onnx, bit code will be generated.
         subprocess.run([ONNF, "temp_model.onnx"], stdout=subprocess.PIPE)
         # Call llc to generate object file from bitcode.
-        print([LLC, "-filetype=obj", "model.bc"])
-        subprocess.run([LLC, "-filetype=obj", "model.bc"],
+        print([LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"])
+        subprocess.run([LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"],
                        stdout=subprocess.PIPE)
         # Generate shared library from object file, linking with c runtime.
         print([
