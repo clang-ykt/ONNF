@@ -135,10 +135,12 @@ int main(int argc, char *argv[]) {
   if (mlir::failed(pm.run(*module)))
     return 4;
 
-  // Write LLVM bitcode to disk.
-  if (emissionTarget == EmitLLVMBC)
-    EmitLLVMBitCode(module);
-  else
+
+  if (emissionTarget == EmitLLVMBC) {
+      // Write LLVM bitcode to disk.
+      EmitLLVMBitCode(module);
+      printf("LLVM bitcode written to ./model.bc");
+  } else
     module->dump();
 
   return 0;
