@@ -148,7 +148,9 @@ all_test_names = list(map(lambda x: x[0], all_tests))
 
 # Ensure that test names specified in test_to_enable actually exist.
 for test_name in test_to_enable:
-    assert test_name in all_test_names, "test name {} not found".format(
+    assert test_name in all_test_names, "test name {} not found, it is likely "
+    "that you may have misspelled the test name or the specified test does not "
+    "exist in the version of onnx package you installed.".format(
         test_name)
     backend_test.include(r"^{}$".format(test_name))
 
