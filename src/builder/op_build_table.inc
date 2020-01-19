@@ -87,7 +87,7 @@
          {"value","", ""}
       });
     }else if (OpName == "Conv") {
-       ImportNodeConv(node, 3, 1, {
+       ImportNodeConv(node, 1, {
          {"auto_pad","str","NOTSET"}
         ,{"dilations","", ""}
         ,{"group","int", "1"}
@@ -303,7 +303,7 @@
        ImportNodeOneOut<mlir::ONNXMaxOp>(node, 1, 1, {
       });
     }else if (OpName == "MaxPool") {
-       ImportNodeMultipleOuts<mlir::ONNXMaxPoolOp>(node, 1, 2, {
+       ImportNodeMaxPool(node, 1, {
          {"auto_pad","str","NOTSET"}
         ,{"ceil_mode","int","0"}
         ,{"dilations","", ""}

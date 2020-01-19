@@ -611,7 +611,7 @@ private:
    * a specialized function is used
    */
   void ImportNodeConv(
-      onnx::NodeProto node, int nIn, int nOut,
+      onnx::NodeProto node, int nOut,
       std::initializer_list<std::tuple<std::string, std::string, std::string>>
           attrs) {
     // Conv has attribute dilations, kernel_shape, pads, the default value of
@@ -624,11 +624,26 @@ private:
     // similar situation for pads, strides in AveragePool
     // axes of ReduceSum,  pads, strides, dilations and kernel_shape of MaxPool
     // TODO: fix this after type inference
+    int nOps = node.input().size();
 
-    if (node.input().size() == 1) {
-      ImportNodeOneOut<mlir::ONNXConv1Op>(node, nIn, nOut, attrs);
+    if (nOps == 2)
+      ImportNodeOneOut<mlir::ONNXConvNoBiasOp>(node, nOps, nOut, attrs);
+    else
+      ImportNodeOneOut<mlir::ONNXConvOp>(node, nOps, nOut, attrs);
+  }
+
+  /*!
+   * Special handle for MaxPool operations.
+   */
+  void ImportNodeMaxPool(
+      onnx::NodeProto node, int nIn,
+      std::initializer_list<std::tuple<std::string, std::string, std::string>>
+          attrs) {
+    int nOuts = node.output().size();
+    if (nOuts == 1) {
+      ImportNodeOneOut<mlir::ONNXMaxPoolSingleOutOp>(node, nIn, nOuts, attrs);
     } else {
-      ImportNodeOneOut<mlir::ONNXConv3Op>(node, nIn, nOut, attrs);
+      ImportNodeMultipleOuts<mlir::ONNXMaxPoolOp>(node, nIn, nOuts, attrs);
     }
   }
 
