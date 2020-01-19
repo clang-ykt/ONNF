@@ -13,6 +13,8 @@ from onnx.backend.base import Device, DeviceType
 import subprocess
 import test_config
 
+VERBOSE = bool(os.environ.get("VERBOSE"))
+
 CXX = test_config.CXX_PATH
 ONNF = os.path.join(test_config.ONNF_BUILD_PATH, "bin/onnf")
 LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
@@ -23,34 +25,29 @@ RUNTIME_DIR = os.path.join(test_config.ONNF_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from pyruntime import ExecutionSession
 
+
+def execute_commands(cmds):
+    if (VERBOSE):
+        print(" ".join(cmds))
+    subprocess.run(cmds, stdout=subprocess.PIPE)
+
+
 class DummyBackend(onnx.backend.base.Backend):
     @classmethod
-    def prepare(
-            cls,
-            model,
-            device='CPU',
-            **kwargs
-    ):
+    def prepare(cls, model, device='CPU', **kwargs):
         super(DummyBackend, cls).prepare(model, device, **kwargs)
         # Save model to disk as temp_model.onnx.
         onnx.save(model, "temp_model.onnx")
-        print([ONNF, "temp_model.onnx"])
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        subprocess.run([ONNF, "temp_model.onnx"], stdout=subprocess.PIPE)
+        execute_commands([ONNF, "temp_model.onnx"])
         # Call llc to generate object file from bitcode.
-        print([LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"])
-        subprocess.run([LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"],
-                       stdout=subprocess.PIPE)
+        execute_commands(
+            [LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"])
         # Generate shared library from object file, linking with c runtime.
-        print([
-            CXX, "-shared", "-fPIC", "model.o", "-o", "model.so", "-L" + RUNTIME_DIR,
-            "-lcruntime"
+        execute_commands([
+            CXX, "-shared", "-fPIC", "model.o", "-o", "model.so",
+            "-L" + RUNTIME_DIR, "-lcruntime"
         ])
-        subprocess.run([
-            CXX, "-shared", "-fPIC", "model.o", "-o", "model.so", "-L" + RUNTIME_DIR,
-            "-lcruntime"
-        ],
-                       stdout=subprocess.PIPE)
         return ExecutionSession("./model.so", "_dyn_entry_point_main_graph")
 
     @classmethod
@@ -132,7 +129,7 @@ test_to_enable = [
     # Sigmoid Op:
     "test_sigmoid_cpu",
     "test_sigmoid_example_cpu",
-    
+
     # Sum Op:
     #"test_sum_example_cpu", <- error
     "test_sum_one_input_cpu",
@@ -151,7 +148,8 @@ all_test_names = list(map(lambda x: x[0], all_tests))
 
 # Ensure that test names specified in test_to_enable actually exist.
 for test_name in test_to_enable:
-    assert test_name in all_test_names, "test name {} not found".format(test_name)
+    assert test_name in all_test_names, "test name {} not found".format(
+        test_name)
     backend_test.include(r"^{}$".format(test_name))
 
 # import all test cases at global scope to make them visible to python.unittest
