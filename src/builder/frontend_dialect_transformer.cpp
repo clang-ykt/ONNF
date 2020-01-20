@@ -243,8 +243,7 @@ private:
     auto dataType =
         mlir::RankedTensorType::get(r.size(), builder_.getIntegerType(32));
     auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
+    auto attr_output = builder_.getNamedAttr(name, attr_v);
     return attr_output;
   }
 
@@ -259,8 +258,7 @@ private:
     auto dataType =
         mlir::RankedTensorType::get(r.size(), builder_.getIntegerType(32));
     auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
+    auto attr_output = builder_.getNamedAttr(name, attr_v);
     return attr_output;
   }
 
@@ -275,8 +273,7 @@ private:
     auto dataType =
         mlir::RankedTensorType::get(r.size(), builder_.getF32Type());
     auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
+    auto attr_output = builder_.getNamedAttr(name, attr_v);
     return attr_output;
   }
 
@@ -292,8 +289,7 @@ private:
     auto dataType =
         mlir::RankedTensorType::get(r.size(), builder_.getF32Type());
     auto attr_v = mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(r));
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
+    auto attr_output = builder_.getNamedAttr(name, attr_v);
     return attr_output;
   }
 
@@ -302,8 +298,7 @@ private:
         [](onnx::AttributeProto &attr) { return attr.i(); };
     int r = get_attr_generic(node, name, attr_getter);
     auto attr_v = builder_.getI32IntegerAttr(r);
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
+    auto attr_output = builder_.getNamedAttr(name, attr_v);
     return attr_output;
   }
 
@@ -312,8 +307,7 @@ private:
         [](onnx::AttributeProto &attr) { return attr.i(); };
     int r = get_attr_generic(node, name, attr_getter, default_val);
     auto attr_v = builder_.getI32IntegerAttr(r);
-    auto aname = node.op_type() + "." + name;
-    auto attr_output = builder_.getNamedAttr(aname, attr_v);
+    auto attr_output = builder_.getNamedAttr(name, attr_v);
     return attr_output;
   }
 
@@ -322,8 +316,7 @@ private:
         [](onnx::AttributeProto &attr) { return attr.f(); };
     auto r = get_attr_generic(node, name, attr_getter);
     auto attr_v = builder_.getF32FloatAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
+    return builder_.getNamedAttr(name, attr_v);
   }
 
   auto get_attr_float(onnx::NodeProto &node, std::string name,
@@ -332,8 +325,7 @@ private:
         [](onnx::AttributeProto &attr) { return attr.f(); };
     auto r = get_attr_generic(node, name, attr_getter, default_val);
     auto attr_v = builder_.getF32FloatAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
+    return builder_.getNamedAttr(name, attr_v);
   }
 
   auto get_attr_string(onnx::NodeProto &node, std::string name) {
@@ -341,8 +333,7 @@ private:
         [](onnx::AttributeProto &attr) { return attr.s(); };
     auto r = get_attr_generic(node, name, attr_getter);
     auto attr_v = builder_.getStringAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
+    return builder_.getNamedAttr(name, attr_v);
   }
 
   auto get_attr_string(onnx::NodeProto &node, std::string name,
@@ -351,8 +342,7 @@ private:
         [](onnx::AttributeProto &attr) { return attr.s(); };
     auto r = get_attr_generic(node, name, attr_getter, default_val);
     auto attr_v = builder_.getStringAttr(r);
-    auto aname = node.op_type() + "." + name;
-    return builder_.getNamedAttr(aname, attr_v);
+    return builder_.getNamedAttr(name, attr_v);
   }
 
   /*
@@ -370,8 +360,8 @@ private:
       auto dataType =
           mlir::RankedTensorType::get(r.size(), builder_.get???Type());
       auto attr_v = mlir::DenseElementsAttr::get(dataType,
-    llvm::makeArrayRef(r)); auto aname = node.op_type() + "." + name; auto
-    attr_output = builder_.getNamedAttr(aname, attr_v); return attr_output;
+    llvm::makeArrayRef(r)); auto
+    attr_output = builder_.getNamedAttr(name, attr_v); return attr_output;
     }
   */
 
