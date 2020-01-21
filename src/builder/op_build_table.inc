@@ -262,7 +262,7 @@
        ImportNodeOneOut<mlir::ONNXMaxOp>(node, 1, 1, {
       });
     }else if (OpName == "MaxPool") {
-       ImportNodeMultipleOuts<mlir::ONNXMaxPoolOp>(node, 1, {
+       ImportNodeMaxPool(node, 1, {
          {"auto_pad", "NOTSET"}
         ,{"ceil_mode", 0}
         ,{"kernel_shape", std::vector<int64_t> {}}
