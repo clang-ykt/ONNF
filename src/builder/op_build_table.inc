@@ -79,7 +79,7 @@
        ImportNodeOneOut<mlir::ONNXConstantOfShapeOp>(node, 1, 1, {
       });
     }else if (OpName == "Conv") {
-       ImportNodeConv(node, 1, {
+       ImportNodeConv(node, 3, 1, {
          {"auto_pad", "NOTSET"}
         ,{"group", 1}
       });
@@ -262,7 +262,7 @@
        ImportNodeOneOut<mlir::ONNXMaxOp>(node, 1, 1, {
       });
     }else if (OpName == "MaxPool") {
-       ImportNodeMaxPool(node, 1, {
+       ImportNodeMaxPool(node, 1, 2, {
          {"auto_pad", "NOTSET"}
         ,{"ceil_mode", 0}
         ,{"kernel_shape", std::vector<int64_t> {}}

@@ -410,7 +410,7 @@ private:
    * a specialized function is used
    */
   void
-  ImportNodeConv(onnx::NodeProto node, int nOut,
+  ImportNodeConv(onnx::NodeProto node, int nIn, int nOut,
                  std::initializer_list<std::pair<std::string, AttrValueType>>
                      defaultAttrList) {
     // Conv has attribute dilations, kernel_shape, pads, the default value of
@@ -436,7 +436,7 @@ private:
    * Special handle for MaxPool operations.
    */
   void ImportNodeMaxPool(
-      onnx::NodeProto node, int nIn,
+      onnx::NodeProto node, int nIn, int nOut,
       std::initializer_list<std::pair<std::string, AttrValueType>>
           defaultAttrList) {
     int nOuts = node.output().size();
