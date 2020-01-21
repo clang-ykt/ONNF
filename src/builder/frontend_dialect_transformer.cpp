@@ -437,8 +437,8 @@ private:
    */
   void ImportNodeMaxPool(
       onnx::NodeProto node, int nIn,
-      std::initializer_list<std::tuple<std::string, std::string, std::string>>
-          attrs) {
+      std::initializer_list<std::pair<std::string, AttrValueType>>
+          defaultAttrList) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
       ImportNodeOneOut<mlir::ONNXMaxPoolSingleOutOp>(
