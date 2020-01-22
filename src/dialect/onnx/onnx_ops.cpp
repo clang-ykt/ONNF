@@ -624,6 +624,57 @@ LogicalResult verify(ONNXConvNoBiasOp op) {
 }
 
 //===----------------------------------------------------------------------===//
+
+// MaxPool
+
+void ONNXMaxPoolOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!getOperand().getType().isa<RankedTensorType>())
+    emitError("Shape tensor not ranked.");
+
+
+  auto xTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto xShape = dataTy.getShape();
+  auto xSize = xShape.size();
+
+  // initialize output shape from the input shape
+  SmallVector<int64_t, 4> yShape(xShape);
+
+  // get kernel sizes from kernel_shape attribute 
+  auto kernelShape = getAttrOfType<ArrayAttr>(
+        ONNXMaxPoolOp::getKernelShapeAttrName());
+  if (!kernelShape)
+    emitError("kernel_shape is a mandatory attribute.");
+  auto kernelSize = kernelShape.size(); 
+  if (kernelSize>xSize)
+    emitError("kernel_shape spacial dimension is too large.");
+
+  // now try to find padding, getting attribute first
+  // Required attribute auto_pad defaults to NOTSET.
+  auto autoPad = getAttrOfType<StringAttr>(
+    ONNXMaxPoolOp::getAutoPadAttrName()).getValue();
+
+  if (autoPad == "VALID") {
+    // no padding
+
+     if (kernel_shape.getValue().size() != nDims)
+       emitError("kernel_shape length incompatible with spatial dimensions.");
+     for (int i = 0; i < nDims; ++i) {
+       int64_t kernelDim =
+           (kernel_shape.getValue()[i]).cast<IntegerAttr>().getInt();
+       spatialDims[i] -= kernelDim;
+     }
+   } else {
+     for (int i = 0; i < nDims; ++i)
+       spatialDims[i] -= weightShape[i + 2];
+   }
+
+  auto arrayTy = getOperand().getType().cast<RankedTensorType>();
+  SmallVector<int64_t, 2> dims(llvm::reverse(arrayTy.getShape()));
+  getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
