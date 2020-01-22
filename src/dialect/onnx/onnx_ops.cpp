@@ -454,49 +454,84 @@ LogicalResult verify(ONNXTransposeOp op) {
 
 void ONNXMaxPoolOp::inferShapes() {
   // Cannot infer shape if no shape exists.
-  if (!getOperand().getType().isa<RankedTensorType>())
+  if (!getOperand(0).getType().isa<RankedTensorType>())
     emitError("Shape tensor not ranked.");
 
-
+  // 1) get shape of input
   auto xTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto xShape = dataTy.getShape();
+  auto xShape = xTy.getShape();
   auto xSize = xShape.size();
 
-  // initialize output shape from the input shape
-  SmallVector<int64_t, 4> yShape(xShape);
-
+  // 2) analyse parameters
   // get kernel sizes from kernel_shape attribute 
-  auto kernelShape = getAttrOfType<ArrayAttr>(
+  auto kernelTy = getAttrOfType<ArrayAttr>(
         ONNXMaxPoolOp::getKernelShapeAttrName());
-  if (!kernelShape)
+  if (!kernelTy)
     emitError("kernel_shape is a mandatory attribute.");
-  auto kernelSize = kernelShape.size(); 
-  if (kernelSize>xSize)
+  auto kernelSize = kernelTy.getValue().size(); 
+  if (kernelSize > xSize)
     emitError("kernel_shape spacial dimension is too large.");
 
-  // now try to find padding, getting attribute first
-  // Required attribute auto_pad defaults to NOTSET.
+  // now try to find padding, getting auto_pad attribute first
   auto autoPad = getAttrOfType<StringAttr>(
     ONNXMaxPoolOp::getAutoPadAttrName()).getValue();
+  // and then investigate the various different cases
+  SmallVector<int64_t, 4> actualPads;
+  auto defaultPads = false;
+  if (autoPad == "NOTSET") {
+    if (auto pads = getAttrOfType<ArrayAttr>(
+             ONNXConvOp::getPadsAttrName())) {
+      // pads consists of two entries for each spatial axis.
+      if (pads.getValue().size() != 2 * kernelSize)
+        emitError("pads size is not twice the spatial size.");
+      // fill in the actual values
+      for (int i = 0; i < 2*kernelSize; ++i) {
+        // Padding for beginning of axis.
+        int64_t p = (pads.getValue()[i]).cast<IntegerAttr>().getInt();
+        if (p < 0) 
+          emitError("pads value must be nonnegative.");
+        actualPads.emplace_back(p);
+      }
+    } else {
+      // pads are not defined, default to value 0
+      defaultPads = true;
+    }
+  } else if (autoPad == "VALID") {
+    defaultPads = true;
+  } else {
+    emitError("auto_pad of unknown / unsupported value.");
+  }
+  // handle case where default pad values must be used
+  if (defaultPads) {
+    for(int i=0; i<2*kernelSize; ++i) {
+      derivedPads.emplace_back(0)
+    }
+  }
+  // ceil mode
+  auto ceilMode = false;
+  // dilatation
+  // storage order
+  // strides
 
-  if (autoPad == "VALID") {
-    // no padding
-
-     if (kernel_shape.getValue().size() != nDims)
-       emitError("kernel_shape length incompatible with spatial dimensions.");
-     for (int i = 0; i < nDims; ++i) {
-       int64_t kernelDim =
-           (kernel_shape.getValue()[i]).cast<IntegerAttr>().getInt();
-       spatialDims[i] -= kernelDim;
-     }
-   } else {
-     for (int i = 0; i < nDims; ++i)
-       spatialDims[i] -= weightShape[i + 2];
-   }
-
-  auto arrayTy = getOperand().getType().cast<RankedTensorType>();
-  SmallVector<int64_t, 2> dims(llvm::reverse(arrayTy.getShape()));
-  getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
+  // initialize output shape 
+  SmallVector<int64_t, 4> yShape(xShape);
+  // for all kernel dimensions
+  for(int i=0; i<kernelSize; ++i) {
+    auto inputSpacialShape = xShape[i];
+    auto padShape = actualPads[i] + actualPads[kernelSize+i];
+    auto kernelSpacialShape = (kernelTy.getValue()[i]).cast<IntegerAttr>().getInt();
+    auto dilations = 1;
+    auto strideSpacialShape = 1;
+    ///output_spatial_shape[i] = ceil( (input_spatial_shape[i] + pad_shape[i] - ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
+    double nominator = inputSpacialShape + padShape - 
+      ((kernelSpacialShape -1) * dilations + 1;
+    double denominator = strideSpacialShape;
+    int64_t res = (ceilMode ? ceil(nominator / denominator) : 
+      floor(nominator / denominator)) + 1;
+    yShape[xSize - kernelSize + i] = res;
+  }
+  auto arrayTy = getOperand(0).getType().cast<RankedTensorType>();
+  getResult(0).setType(RankedTensorType::get(yShape, arrayTy.getElementType()));
 }
 
 //===----------------------------------------------------------------------===//
