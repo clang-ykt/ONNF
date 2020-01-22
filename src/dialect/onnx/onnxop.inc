@@ -1448,7 +1448,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxPool operation";
   let description = [{
     "MaxPool consumes an input tensor X and applies max pooling across"
@@ -1483,6 +1483,15 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let extraClassDeclaration = [{
+    static StringRef getAutoPadAttrName() { return "auto_pad"; }
+    static StringRef getCeilModeAttrName() { return "ceil_mode"; }
+    static StringRef getDilationsAttrName() { return "dilations"; }
+    static StringRef getKernelShapeAttrName() { return "kernel_shape"; }
+    static StringRef getPadsAttrName() { return "pads"; }
+    static StringRef getStorageOrderAttrName() { return "storage_order"; }
+    static StringRef getStridesAttrName() { return "strides"; }
+  }];
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool", 
