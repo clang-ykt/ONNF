@@ -471,6 +471,56 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   auto kernelSize = kernelTy.getValue().size(); 
   if (kernelSize > xSize)
     emitError("kernel_shape spacial dimension is too large.");
+  auto kernelOffset = xSize - kernelSize;
+
+  // ceil mode
+  auto ceilModeTy = getAttrOfType<IntegerAttr>(
+    ONNXMaxPoolSingleOutOp::getCeilModeAttrName());
+  if (!ceilModeTy)
+    emitError("ceil_mode default expected");
+  auto ceilMode = ceilModeTy.getInt();
+
+  // dilatation
+  SmallVector<int64_t, 4> actualDilations;
+  if (auto dilationsTy = getAttrOfType<ArrayAttr>(
+      ONNXMaxPoolSingleOutOp::getDilationsAttrName())) {
+    if (dilationsTy.getValue().size() != kernelSize)
+        emitError("dialation size is not twice the spatial size.");
+    // fill in the actual values
+    for (int i = 0; i < kernelSize; ++i) {
+      // Padding for beginning of axis.
+      int64_t d = (dilationsTy.getValue()[i]).cast<IntegerAttr>().getInt();
+      if (d < 1) 
+        emitError("dialation value must be nonzero positive.");
+      actualDilations.emplace_back(d);
+    }
+  } else {
+    for(int i=0; i < kernelSize; ++i) {
+      actualDilations.emplace_back(1);      
+    }
+  }
+
+  // storage order
+  
+  // strides
+  SmallVector<int64_t, 4> actualStrides;
+  if (auto stridesTy = getAttrOfType<ArrayAttr>(
+      ONNXMaxPoolSingleOutOp::getStridesAttrName())) {
+    if (stridesTy.getValue().size() != kernelSize)
+        emitError("strides size is not twice the spatial size.");
+    // fill in the actual values
+    for (int i = 0; i < kernelSize; ++i) {
+      // Padding for beginning of axis.
+      int64_t s = (stridesTy.getValue()[i]).cast<IntegerAttr>().getInt();
+      if (s < 1) 
+        emitError("strides value must be nonzero positive.");
+      actualStrides.emplace_back(s);
+    }
+  } else {
+    for(int i=0; i < kernelSize; ++i) {
+      actualStrides.emplace_back(1);      
+    }
+  }
 
   // now try to find padding, getting auto_pad attribute first
   auto autoPadTy = getAttrOfType<StringAttr>(
@@ -501,6 +551,28 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     }
   } else if (autoPad == "VALID") {
     defaultPads = true;
+  } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+    // init pad with zero
+    for(int i=0; i<2*kernelSize; ++i) {
+      actualPads.emplace_back(0);
+    }
+    for(int i=0; i<kernelSize; ++i) {
+      auto inputSpacialShape = xShape[kernelOffset  + i];
+      auto kernelSpacialShape = (kernelTy.getValue()[i]).cast<IntegerAttr>().getInt();
+      auto dilations = actualDilations[1];
+      auto strideSpacialShape = actualStrides[i];
+      int64_t outputSpatialShape = ceil((1.0 * inputSpacialShape) / (1.0 * strideSpacialShape));
+      auto sumOfPad = (outputSpatialShape - 1) * strideSpacialShape + ((kernelSpacialShape - 1) * dilations + 1) - inputSpacialShape;
+      actualPads[i] = actualPads[kernelSize + i] = sumOfPad / 2;
+      if (sumOfPad % 2 != 0) {
+        if (autoPad == "SAME_UPPER") {
+          actualPads[kernelSize + i] += 1;
+        } else {
+          actualPads[i] += 1;          
+        }
+      }
+    }
+    printf("pad"); for(int i=0; i<2*kernelSize; ++i) printf(" %lld", actualPads[i]); printf("\n");
   } else {
     emitError("auto_pad of unknown / unsupported value.");
   }
@@ -510,58 +582,10 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
       actualPads.emplace_back(0);
     }
   }
-  // ceil mode
-  auto ceilModeTy = getAttrOfType<IntegerAttr>(
-    ONNXMaxPoolSingleOutOp::getCeilModeAttrName());
-  if (!ceilModeTy)
-    emitError("ceil_mode default expected");
-  auto ceilMode = ceilModeTy.getInt();
-
-  // dilatation
-  SmallVector<int64_t, 4> actualDilations;
-  if (auto dilationsTy = getAttrOfType<ArrayAttr>(
-      ONNXMaxPoolSingleOutOp::getDilationsAttrName())) {
-    if (dilationsTy.getValue().size() != kernelSize)
-        emitError("dialation size is not twice the spatial size.");
-    // fill in the actual values
-    for (int i = 0; i < kernelSize; ++i) {
-      // Padding for beginning of axis.
-      int64_t d = (dilationsTy.getValue()[i]).cast<IntegerAttr>().getInt();
-      if (d < 1) 
-        emitError("dialation value must be nonzero positive.");
-      actualDilations.emplace_back(d);
-    }
-  } else {
-    for(int i=0; i < kernelSize; ++i) {
-      actualDilations.emplace_back(1);      
-    }
-  }
-
-  // storage order
-  // strides
-  SmallVector<int64_t, 4> actualStrides;
-  if (auto stridesTy = getAttrOfType<ArrayAttr>(
-      ONNXMaxPoolSingleOutOp::getStridesAttrName())) {
-    if (stridesTy.getValue().size() != kernelSize)
-        emitError("strides size is not twice the spatial size.");
-    // fill in the actual values
-    for (int i = 0; i < kernelSize; ++i) {
-      // Padding for beginning of axis.
-      int64_t s = (stridesTy.getValue()[i]).cast<IntegerAttr>().getInt();
-      if (s < 1) 
-        emitError("strides value must be nonzero positive.");
-      actualStrides.emplace_back(s);
-    }
-  } else {
-    for(int i=0; i < kernelSize; ++i) {
-      actualStrides.emplace_back(1);      
-    }
-  }
 
   // initialize output shape 
   SmallVector<int64_t, 4> yShape;
   yShape.append(xShape.begin(), xShape.end());
-  auto kernelOffset = xSize - kernelSize;
   // for all kernel dimensions
   for(int i=0; i<kernelSize; ++i) {
     auto inputSpacialShape = xShape[kernelOffset  + i];
