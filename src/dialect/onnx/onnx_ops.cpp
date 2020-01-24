@@ -448,7 +448,6 @@ LogicalResult verify(ONNXTransposeOp op) {
   return success();
 }
 
-  
 //===----------------------------------------------------------------------===//
 
 // Conv
@@ -646,7 +645,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     emitError("kernel_shape is a mandatory attribute.");
   auto kernelSize = kernelTy.getValue().size(); 
   if (kernelSize > xSize)
-    emitError("kernel_shape spacial dimension is too large.");
+    emitError("kernel_shape spatial dimension is too large.");
   auto kernelOffset = xSize - kernelSize;
 
   // ceil mode
@@ -661,7 +660,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   if (auto dilationsTy = getAttrOfType<ArrayAttr>(
       ONNXMaxPoolSingleOutOp::getDilationsAttrName())) {
     if (dilationsTy.getValue().size() != kernelSize)
-        emitError("dialation size is not twice the spatial size.");
+        emitError("dialation size is not the same as the spatial size.");
     // fill in the actual values
     for (int i = 0; i < kernelSize; ++i) {
       // Padding for beginning of axis.
@@ -683,7 +682,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   if (auto stridesTy = getAttrOfType<ArrayAttr>(
       ONNXMaxPoolSingleOutOp::getStridesAttrName())) {
     if (stridesTy.getValue().size() != kernelSize)
-        emitError("strides size is not twice the spatial size.");
+        emitError("strides size is not the same as the spatial size.");
     // fill in the actual values
     for (int i = 0; i < kernelSize; ++i) {
       // Padding for beginning of axis.
@@ -733,12 +732,14 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
       actualPads.emplace_back(0);
     }
     for(int i=0; i<kernelSize; ++i) {
-      auto inputSpacialShape = xShape[kernelOffset  + i];
-      auto kernelSpacialShape = (kernelTy.getValue()[i]).cast<IntegerAttr>().getInt();
-      auto dilations = actualDilations[1];
-      auto strideSpacialShape = actualStrides[i];
-      int64_t outputSpatialShape = ceil((1.0 * inputSpacialShape) / (1.0 * strideSpacialShape));
-      auto sumOfPad = (outputSpatialShape - 1) * strideSpacialShape + ((kernelSpacialShape - 1) * dilations + 1) - inputSpacialShape;
+      auto inputSpatialShape = xShape[kernelOffset  + i];
+      auto kernelSpatialShape = (kernelTy.getValue()[i]).cast<IntegerAttr>().getInt();
+      auto dilations = actualDilations[i];
+      auto strideSpatialShape = actualStrides[i];
+      int64_t outputSpatialShape = ceil((1.0 * inputSpatialShape) /
+        (1.0 * strideSpatialShape));
+      auto sumOfPad = (outputSpatialShape - 1) * strideSpatialShape + 
+        ((kernelSpatialShape - 1) * dilations + 1) - inputSpatialShape;
       actualPads[i] = actualPads[kernelSize + i] = sumOfPad / 2;
       if (sumOfPad % 2 != 0) {
         if (autoPad == "SAME_UPPER") {
@@ -748,7 +749,6 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
         }
       }
     }
-    printf("pad"); for(int i=0; i<2*kernelSize; ++i) printf(" %lld", actualPads[i]); printf("\n");
   } else {
     emitError("auto_pad of unknown / unsupported value.");
   }
@@ -764,18 +764,18 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   yShape.append(xShape.begin(), xShape.end());
   // for all kernel dimensions
   for(int i=0; i<kernelSize; ++i) {
-    auto inputSpacialShape = xShape[kernelOffset  + i];
+    auto inputSpatialShape = xShape[kernelOffset  + i];
     auto padShape = actualPads[i] + actualPads[kernelSize+i];
-    auto kernelSpacialShape = (kernelTy.getValue()[i]).cast<IntegerAttr>().getInt();
-    auto dilations = actualDilations[1];
-    auto strideSpacialShape = actualStrides[i];
-    ///output_spatial_shape[i] = ceil( (input_spatial_shape[i] + pad_shape[i] - ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
-    double nominator = inputSpacialShape + padShape - 
-      ((kernelSpacialShape - 1) * dilations + 1);
-    double denominator = strideSpacialShape;
+    auto kernelSpatialShape = (kernelTy.getValue()[i]).cast<IntegerAttr>().getInt();
+    auto dilations = actualDilations[i];
+    auto strideSpatialShape = actualStrides[i];
+    ///output_spatial_shape[i] = ceil( (input_spatial_shape[i] + pad_shape[i] - 
+    //  ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
+    double nominator = inputSpatialShape + padShape - 
+      ((kernelSpatialShape - 1) * dilations + 1);
+    double denominator = strideSpatialShape;
     int64_t res;
     if (ceilMode) {
-      printf("use ceil\n");
       res = ceil(nominator / denominator) + 1;
     } else {
       res = floor(nominator / denominator) + 1;
