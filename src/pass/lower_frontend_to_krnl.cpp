@@ -421,9 +421,9 @@ Value mapToLowerScalarOp<ONNXHardSigmoidOp>(
   auto loc = op->getLoc();
   Value operand = operands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast_or_null<ONNXHardSigmoidOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXHardSigmoidOp>(op).alpha().convertToFloat());
   auto betaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast_or_null<ONNXHardSigmoidOp>(op).beta().convertToFloat());
+      llvm::dyn_cast<ONNXHardSigmoidOp>(op).beta().convertToFloat());
   auto elementType = result_types[0];
 
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
@@ -458,7 +458,7 @@ Value mapToLowerScalarOp<ONNXEluOp>(Operation *op, ArrayRef<Type> result_types,
   auto elementType = result_types[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast_or_null<ONNXEluOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXEluOp>(op).alpha().convertToFloat());
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
   auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
@@ -512,7 +512,7 @@ Value mapToLowerScalarOp<ONNXLeakyReluOp>(Operation *op,
   auto elementType = result_types[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast_or_null<ONNXLeakyReluOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXLeakyReluOp>(op).alpha().convertToFloat());
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
   auto lessThanZero =
@@ -538,9 +538,9 @@ Value mapToLowerScalarOp<ONNXSeluOp>(Operation *op, ArrayRef<Type> result_types,
   auto loc = op->getLoc();
   Value operand = operands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast_or_null<ONNXSeluOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXSeluOp>(op).alpha().convertToFloat());
   auto gammaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast_or_null<ONNXSeluOp>(op).gamma().convertToFloat());
+      llvm::dyn_cast<ONNXSeluOp>(op).gamma().convertToFloat());
   auto elementType = result_types[0];
 
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
@@ -882,7 +882,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     //                    exp_x / sum
     auto tensorType = (*op->result_type_begin()).cast<RankedTensorType>();
     int64_t rank = tensorType.getRank();
-    int64_t axis = llvm::dyn_cast_or_null<ONNXSoftmaxOp>(op).axis().getSExtValue();
+    int64_t axis = llvm::dyn_cast<ONNXSoftmaxOp>(op).axis().getSExtValue();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
