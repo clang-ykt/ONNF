@@ -1151,6 +1151,113 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
   }
 };
 
+struct ONNXTransposeOpLowering : public ConversionPattern {
+  ONNXTransposeOpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
+  PatternMatchResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
+    auto loc = op->getLoc();
+
+    // Insert an allocation and deallocation for the result of this operation.
+    auto memRefType = convertTensorToMemRef(tensorType);
+    Value alloc;
+    bool insertDealloc = checkInsertDealloc(op);
+
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
+                                    {operands[0]});
+
+    // Number of loops
+    auto memRefShape = memRefType.getShape();
+    int64_t rank = memRefShape.size();
+
+    // Define loops.
+    auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, rank);
+    std::vector<Value> originalLoops;
+    originalLoops.reserve(rank);
+    for (auto result : loopsOp.getResults()) {
+      originalLoops.push_back(result);
+    }
+
+    // Define loop optimization.
+    auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, rank);
+    std::vector<Value> optimizedLoops;
+    optimizedLoops.reserve(rank);
+    for (auto result : optimizedLoopsOp.getResults()) {
+      optimizedLoops.push_back(result);
+    }
+    Block &optimizationBlock = optimizedLoopsOp.region().front();
+
+    KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
+    // Iterate over the loop nest.
+    for (int i = 0; i < rank; ++i) {
+      if (memRefShape[i] < 0) {
+        pack.pushConstantBound(0);
+        pack.pushOperandBound(
+            rewriter.create<DimOp>(loc, operands[0], i).getResult());
+      } else {
+        pack.pushConstantBound(0);
+        pack.pushConstantBound(memRefShape[i]);
+      }
+    }
+
+    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
+    Block &iterationBlock = iterateOp.bodyRegion().front();
+
+    // Now perform the insertions into the body of the
+    // just generated instructions:
+
+    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
+    rewriter.setInsertionPointToEnd(&optimizationBlock);
+    // Return from KrnlOptimizeLoopsOp body.
+    // When no optimizations are present we just return the loops
+    // unchaged.
+    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+    rewriter.setInsertionPoint(optimizedLoopsOp);
+
+    // 2. Insert instructions inside the KernelIterateOp body.
+    rewriter.setInsertionPointToStart(&iterationBlock);
+
+    // Handle the operation.
+
+    // Read perm attribute.
+    SmallVector<int, 4> perm;
+    auto permAttribute = llvm::dyn_cast<ONNXTransposeOp>(op).permAttr();
+    if (permAttribute) {
+      for (auto permVal : permAttribute.getValue())
+        perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
+    } else {
+      // TODO: remove when perm is guaranteed to tbe present even in
+      // the default case.
+      for (int i = iterationBlock.getArguments().size()-1; i >= 0; i--)
+        perm.emplace_back(i);
+    }
+
+    for (int i=0; i<iterationBlock.getArguments().size(); ++i) {
+      printf(" perm val = %d \n", perm[i]);
+    }
+
+    SmallVector<Value, 4> inLoopIVs;
+    for (auto arg : iterationBlock.getArguments())
+      inLoopIVs.emplace_back(arg);
+
+    SmallVector<Value, 4> outLoopIVs;
+    for (int i=0; i<iterationBlock.getArguments().size(); ++i)
+      outLoopIVs.emplace_back(iterationBlock.getArguments()[perm[i]]);
+
+    auto inVal = rewriter.create<LoadOp>(loc, operands[0], inLoopIVs);
+    rewriter.create<StoreOp>(loc, inVal, alloc, inLoopIVs);
+
+    rewriter.replaceOp(op, alloc);
+
+    return matchSuccess();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
 //===----------------------------------------------------------------------===//
@@ -1278,7 +1385,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
                   ONNXReshapeOpLowering, ONNXEntryPointLowering,
-                  ONNXSoftmaxOpLowering>(&getContext());
+                  ONNXSoftmaxOpLowering, ONNXTransposeOpLowering>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
