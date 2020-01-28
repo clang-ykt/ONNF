@@ -304,6 +304,12 @@ struct ScalarOp<ONNXLogOp> {
   using IOp = LogOp; // not use
 };
 
+template <>
+struct ScalarOp<ONNXSqrtOp> {
+  using FOp = KrnlSqrtOp;
+  using IOp = KrnlSqrtOp; // not use
+};
+
 template <typename ElementwiseNaryOp>
 using ScalarFOp = typename ScalarOp<ElementwiseNaryOp>::FOp;
 template <typename ElementwiseNaryOp>
@@ -1118,12 +1124,17 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
         // the result.
         Value index = rewriter.create<ConstantOp>(
             loc, rewriter.getIntegerAttr(rewriter.getIndexType(), i));
+        // Load index from array of indices.
         Value loadedVal = rewriter.create<LoadOp>(loc, operands[1], index);
-        Value int64LoadedVal = rewriter.create<ZeroExtendIOp>(
-            loc, loadedVal, rewriter.getIntegerType(64));
+        // Check if the loaded index is already the correct width of 64 bits.
+        // Convert the value to a 64 bit integer if needed.
+        Value int64LoadedVal = loadedVal;
+        if (loadedVal.getType().cast<IntegerType>().getWidth() < 64)
+          int64LoadedVal = rewriter.create<ZeroExtendIOp>(
+              loc, loadedVal, rewriter.getIntegerType(64));
         tensorSize = rewriter.create<MulIOp>(loc, tensorSize, int64LoadedVal);
         allocOperands.push_back(rewriter.create<IndexCastOp>(
-            loc, loadedVal, rewriter.getIndexType()));
+              loc, loadedVal, rewriter.getIndexType()));
       }
       AllocOp allocateMemref =
           rewriter.create<AllocOp>(loc, memRefType, allocOperands);
@@ -1262,6 +1273,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
+                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
