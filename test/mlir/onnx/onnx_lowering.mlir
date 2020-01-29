@@ -305,14 +305,23 @@ func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi32>) -> tensor<*x
   // CHECK: [[TYPE_IN_BYTES:%.+]] = constant 4 : i64
   // CHECK: %[[INDEX_0:.+]] = constant 0 : index
   // CHECK: [[LOAD_0:%.+]] = load %arg1[%[[INDEX_0]]] : memref<4xi32>
-  // CHECK: [[EXT_0:%.+]] = zexti [[LOAD_0]] : i32 to i64
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[DIM_0_CAST:%.+]] = index_cast [[DIM_0]] : index to i32
+  // CHECK: [[CONSTANT_0:%.+]] = constant 0 : i32
+  // CHECK: [[CMP:%.+]] = cmpi "eq", [[LOAD_0]], [[CONSTANT_0]] : i32
+  // CHECK: [[SELECT_0:%.+]] = select [[CMP]], [[DIM_0_CAST]], [[LOAD_0]] : i32
+  // CHECK: [[EXT_0:%.+]] = zexti [[SELECT_0]] : i32 to i64
   // CHECK: [[MUL_0:%.+]] = muli [[TYPE_IN_BYTES]], [[EXT_0]] : i64
-  // CHECK: [[CAST_0:%.+]] = index_cast [[LOAD_0]] : i32 to index
+  // CHECK: [[CAST_0:%.+]] = index_cast [[SELECT_0]] : i32 to index
   // CHECK: %[[INDEX_1:.+]] = constant 1 : index
   // CHECK: [[LOAD_1:%.+]] = load %arg1[%[[INDEX_1]]] : memref<4xi32>
-  // CHECK: [[EXT_1:%.+]] = zexti [[LOAD_1]] : i32 to i64
+  // CHECK: [[CONSTANT_1:%.+]] = constant 10 : i32
+  // CHECK: [[CONSTANT_2:%.+]] = constant 0 : i32
+  // CHECK: [[CMP_1:%.+]] = cmpi "eq", [[LOAD_1]], [[CONSTANT_2]] : i32
+  // CHECK: [[SELECT_1:%.+]] = select [[CMP_1]], [[CONSTANT_1]], [[LOAD_1]] : i32
+  // CHECK: [[EXT_1:%.+]] = zexti [[SELECT_1]] : i32 to i64
   // CHECK: [[MUL_1:%.+]] = muli [[MUL_0]], [[EXT_1]] : i64
-  // CHECK: [[CAST_1:%.+]] = index_cast [[LOAD_1]] : i32 to index
+  // CHECK: [[CAST_1:%.+]] = index_cast [[SELECT_1]] : i32 to index
   // CHECK: %[[INDEX_2:.+]] = constant 2 : index
   // CHECK: [[LOAD_2:%.+]] = load %arg1[%[[INDEX_2]]] : memref<4xi32>
   // CHECK: [[EXT_2:%.+]] = zexti [[LOAD_2]] : i32 to i64
@@ -624,6 +633,37 @@ func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
 
+func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
+  %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1, transB = 0} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_gemm
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
+  // CHECK: [[ALPHA:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[BETA:%.+]] = constant 5.000000e+00 : f32
+  // CHECK: [[DEF_LOOPS:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_LOOPS:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg3 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg4 = 0 to 10) {
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#2) with ([[DEF_LOOPS]]#2 -> %arg5 = 0 to 5) {
+  // CHECK: [[A:%.+]] = load %arg0[%arg5, %arg3] : memref<5x10xf32>
+  // CHECK: [[B:%.+]] = load %arg1[%arg5, %arg4] : memref<5x10xf32>
+  // CHECK: [[Y:%.+]] = load [[RES]][%arg3, %arg4] : memref<10x10xf32>
+  // CHECK: [[AB:%.+]] = mulf [[A]], [[B]] : f32
+  // CHECK: [[SUM:%.+]] = addf [[Y]], [[AB]] : f32
+  // CHECK: store [[SUM]], [[RES]][%arg3, %arg4] : memref<10x10xf32>
+  // CHECK: }
+  // CHECK: [[C:%.+]] = load %arg2[%arg4] : memref<10xf32>
+  // CHECK: [[LOAD_Y:%.+]] = load [[RES]][%arg3, %arg4] : memref<10x10xf32>
+  // CHECK: [[ALPHA_AB:%.+]] = mulf [[ALPHA]], [[LOAD_Y]] : f32
+  // CHECK: [[BETA_C:%.+]] = mulf [[BETA]], [[C]] : f32
+  // CHECK: [[Y_RES:%.+]] = addf [[ALPHA_AB]], [[BETA_C]] : f32
+  // CHECK: store [[Y_RES]], [[RES]][%arg3, %arg4] : memref<10x10xf32>
+  // CHECK: return [[RES]] : memref<10x10xf32>
+  // CHECK: }
+}
+
 func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -641,5 +681,24 @@ func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[SQRT:%.+]] = "krnl.sqrt"([[LOAD]]) : (f32) -> f32
   // CHECK: store [[SQRT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_unsqueeze
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x10x10x1xf32>
+  // CHECK: [[INBYTES:%.+]] = constant 4 : i64
+  // CHECK: [[DIM1:%.+]] = constant 1 : i64
+  // CHECK: [[SIZE1:%.+]] = muli [[INBYTES]], [[DIM1]] : i64
+  // CHECK: [[DIM2:%.+]] = constant 10 : i64
+  // CHECK: [[SIZE2:%.+]] = muli [[SIZE1]], [[DIM2]] : i64
+  // CHECK: [[DIM3:%.+]] = constant 10 : i64
+  // CHECK: [[SIZE3:%.+]] = muli [[SIZE2]], [[DIM3]] : i64
+  // CHECK: [[DIM4:%.+]] = constant 1 : i64
+  // CHECK: [[SIZE4:%.+]] = muli [[SIZE3]], [[DIM4]] : i64
+  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[SIZE4]]) : (memref<1x10x10x1xf32>, memref<10x10xf32>, i64) -> ()
+  // CHECK: return [[RES]] : memref<1x10x10x1xf32>
 }
 

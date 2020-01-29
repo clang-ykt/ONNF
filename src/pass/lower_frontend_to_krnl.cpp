@@ -1118,6 +1118,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     } else {
       auto memRefShape = memRefType.getShape();
+      auto inputShape = operands[0].getType().cast<MemRefType>().getShape();
       SmallVector<Value, 4> allocOperands;
       for (int i = 0; i < memRefShape.size(); ++i) {
         // The shape array can always be used to construct shape information of
@@ -1126,6 +1127,24 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
             loc, rewriter.getIntegerAttr(rewriter.getIndexType(), i));
         // Load index from array of indices.
         Value loadedVal = rewriter.create<LoadOp>(loc, operands[1], index);
+        // If a dimension is zero, the actual dimension value is taken from the
+        // input tensor.
+        if (i < inputShape.size()) {
+          Value dimVal;
+          auto dimTy = loadedVal.getType().cast<IntegerType>();
+          if (inputShape[i] < 0) {
+            Value dim = rewriter.create<DimOp>(loc, operands[0], i);
+            dimVal = rewriter.create<IndexCastOp>(loc, dim, dimTy);
+          } else {
+            dimVal = rewriter.create<ConstantOp>(
+                loc, rewriter.getIntegerAttr(dimTy, inputShape[i]));
+          }
+          auto zero = rewriter.create<ConstantOp>(
+              loc, rewriter.getIntegerAttr(dimTy, 0));
+          auto isZero =
+              rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, loadedVal, zero);
+          loadedVal = rewriter.create<SelectOp>(loc, isZero, dimVal, loadedVal);
+        }
         // Check if the loaded index is already the correct width of 64 bits.
         // Convert the value to a 64 bit integer if needed.
         Value int64LoadedVal = loadedVal;
@@ -1160,12 +1179,12 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 struct ONNXTransposeOpLowering : public ConversionPattern {
   ONNXTransposeOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
+
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
-
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertTensorToMemRef(tensorType);
     Value alloc;
@@ -1185,6 +1204,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, rank);
     std::vector<Value> originalLoops;
     originalLoops.reserve(rank);
+
     for (auto result : loopsOp.getResults()) {
       originalLoops.push_back(result);
     }
@@ -1193,11 +1213,11 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, rank);
     std::vector<Value> optimizedLoops;
     optimizedLoops.reserve(rank);
+
     for (auto result : optimizedLoopsOp.getResults()) {
       optimizedLoops.push_back(result);
     }
     Block &optimizationBlock = optimizedLoopsOp.region().front();
-
     KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
     // Iterate over the loop nest.
     for (int i = 0; i < rank; ++i) {
@@ -1260,6 +1280,292 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
+    return matchSuccess();
+  }
+};
+
+struct ONNXGemmOpLowering : public ConversionPattern {
+  ONNXGemmOpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXGemmOp::getOperationName(), 1, ctx) {}
+
+  PatternMatchResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
+    auto loc = op->getLoc();
+    Value A, B, C;
+    A = operands[0];
+    B = operands[1];
+    C = operands[2];
+
+    auto alphaAttr = FloatAttr::get(tensorType.getElementType(),
+        llvm::dyn_cast<ONNXGemmOp>(op).alpha().convertToFloat());
+    auto betaAttr = FloatAttr::get(tensorType.getElementType(),
+        llvm::dyn_cast<ONNXGemmOp>(op).beta().convertToFloat());
+    auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
+    auto beta = rewriter.create<ConstantOp>(loc, betaAttr);
+
+    bool isTransA = (llvm::dyn_cast<ONNXGemmOp>(op).transA() != 0);
+    bool isTransB = (llvm::dyn_cast<ONNXGemmOp>(op).transB() != 0);
+
+    // Result type
+    auto memRefType = convertTensorToMemRef(tensorType);
+
+    // Insert an allocation and deallocation for the result of this operation.
+    Value alloc;
+    bool insertDealloc = checkInsertDealloc(op);
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else {
+      auto memRefShape = memRefType.getShape();
+      SmallVector<Value, 2> allocOperands;
+      if (memRefShape[0] < 0) {
+        auto dim = rewriter.create<DimOp>(loc, A, (isTransA) ? 1 : 0);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[1] < 0) {
+        auto dim = rewriter.create<DimOp>(loc, B, (isTransB) ? 0 : 1);
+        allocOperands.emplace_back(dim);
+      }
+      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      if (insertDealloc) {
+        auto *parentBlock = alloc.getDefiningOp()->getBlock();
+        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+    }
+
+    // Number of loops
+    auto memRefShape = memRefType.getShape();
+    int64_t numLoops = 3;
+
+    // Define loops.
+    auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
+    std::vector<Value> originalLoops;
+    originalLoops.reserve(numLoops);
+
+    for (auto result : loopsOp.getResults()) {
+      originalLoops.push_back(result);
+    }
+
+    auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, numLoops);
+    std::vector<Value> optimizedLoops;
+    optimizedLoops.reserve(numLoops);
+
+    for (auto result : optimizedLoopsOp.getResults()) {
+      optimizedLoops.push_back(result);
+    }
+    Block &optimizationBlock = optimizedLoopsOp.region().front();
+
+    // We have two Krnl loops:
+    // - Outer loop iterates over the output matrix dimensions, and
+    // - Reduction loop iterates over the reduction dimension.
+
+    // Outer loop
+    std::vector<Value> outerLoops, optimizedOuterLoops;
+    outerLoops.reserve(2);
+    optimizedOuterLoops.reserve(2);
+    for (int i = 0; i < 2; ++i) {
+      outerLoops.push_back(originalLoops[i]);
+      optimizedOuterLoops.push_back(optimizedLoops[i]);
+    }
+    KrnlIterateOperandPack outerPack(rewriter, outerLoops,
+                                      optimizedOuterLoops);
+    // Induction variables for the outer loops
+    for (int i = 0; i < 2; ++i) {
+      if (memRefShape[i] < 0) {
+        outerPack.pushConstantBound(0);
+        outerPack.pushOperandBound(
+            rewriter.create<DimOp>(loc, alloc, i).getResult());
+      } else {
+        outerPack.pushConstantBound(0);
+        outerPack.pushConstantBound(memRefShape[i]);
+      }
+    }
+    // Reduction loop
+    std::vector<Value> reductionLoops, optimizedReductionLoops;
+    reductionLoops.reserve(1);
+    optimizedReductionLoops.reserve(1);
+    reductionLoops.push_back(originalLoops[2]);
+    optimizedReductionLoops.push_back(optimizedLoops[2]);
+    KrnlIterateOperandPack reductionPack(rewriter, reductionLoops,
+                                         optimizedReductionLoops);
+    // Induction variable for the reduction dimension
+    // Try to find and use a static value from A or B first.
+    // If it failed then use a dynamic value.
+    auto ATy = A.getType().cast<MemRefType>();
+    auto BTy = B.getType().cast<MemRefType>();
+    int64_t K_A_Idx = (isTransA) ? 0 : 1;
+    int64_t K_B_Idx = (isTransB) ? 1 : 0;
+    reductionPack.pushConstantBound(0);
+    if (ATy.getShape()[K_A_Idx] != -1)
+        reductionPack.pushConstantBound(ATy.getShape()[K_A_Idx]);
+    else
+      if (BTy.getShape()[K_B_Idx] != -1)
+        reductionPack.pushConstantBound(BTy.getShape()[K_B_Idx]);
+      else
+        reductionPack.pushOperandBound(
+            rewriter.create<DimOp>(loc, B, K_B_Idx).getResult());
+
+    // Get run-time dimension information for unknown dimensions used for
+    // broadcasting.
+    // GemmOp supports unidirectional broadcasting from C to A*B.
+    // Hence, it must be enough to get broadcasting information for C only.
+    std::map<int, Value> broadcastedDimInfo;
+    auto shape = C.getType().cast<MemRefType>().getShape();
+    for (int i = 0; i < shape.size(); ++i) {
+      if (shape[i] < 0) {
+        auto dim = rewriter.create<DimOp>(loc, C, i).getResult();
+        auto one = rewriter.create<ConstantIndexOp>(loc, 1);
+        auto isBroadcasted =
+          rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dim, one);
+        broadcastedDimInfo.insert(std::make_pair(i, isBroadcasted));
+      }
+    }
+
+    auto outerIterateOp = rewriter.create<KrnlIterateOp>(loc, outerPack);
+
+    // Now perform the insertions into the body of the
+    // just generated instructions:
+
+    // No optimization
+    rewriter.setInsertionPointToEnd(&optimizationBlock);
+    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+    rewriter.setInsertionPoint(optimizedLoopsOp);
+
+    // Insert instructions inside the outer loop.
+    Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
+    rewriter.setInsertionPointToStart(&outerIterationBlock);
+
+    // Induction variables
+    SmallVector<Value, 4> loopMNIVs;
+    for (auto arg : outerIterationBlock.getArguments()) {
+      loopMNIVs.emplace_back(arg);
+    }
+
+    // Initialize the output of A*B
+    auto zero = rewriter.create<ConstantOp>(
+        loc, FloatAttr::get(memRefType.getElementType(), 0));
+    rewriter.create<StoreOp>(loc, zero, alloc, loopMNIVs);
+
+    // Compute A*B
+    auto matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, reductionPack);
+
+    // Compute beta*C, and add up to alpha*A*B (unidirectional broadcasting)
+    auto loopCIVs = getLoopIVsForBroadcasting(
+        loc, rewriter, loopMNIVs, C, broadcastedDimInfo);
+    auto loadedC = rewriter.create<LoadOp>(loc, C, loopCIVs);
+    auto loadedAB = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
+    auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
+    auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
+    auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
+    rewriter.create<StoreOp>(loc, Y, alloc, loopMNIVs);
+
+    // Insert instructions to do matrix multiplication: A*B
+    Block &matmulIterationBlock = matmulIterateOp.bodyRegion().front();
+    rewriter.setInsertionPointToStart(&matmulIterationBlock);
+
+    // Induction variables
+    SmallVector<Value, 4> loopKIVs, loopAIVs, loopBIVs;
+    for (auto arg : matmulIterationBlock.getArguments())
+      loopKIVs.emplace_back(arg);
+    if (isTransA) {
+      loopAIVs.emplace_back(loopKIVs[0]);
+      loopAIVs.emplace_back(loopMNIVs[0]);
+    } else {
+      loopAIVs.emplace_back(loopMNIVs[0]);
+      loopAIVs.emplace_back(loopKIVs[0]);
+    }
+    if (isTransB) {
+      loopBIVs.emplace_back(loopMNIVs[1]);
+      loopBIVs.emplace_back(loopKIVs[0]);
+    } else {
+      loopBIVs.emplace_back(loopKIVs[0]);
+      loopBIVs.emplace_back(loopMNIVs[1]);
+    }
+
+    // Matmul computation
+    auto loadedA = rewriter.create<LoadOp>(loc, A, loopAIVs);
+    auto loadedB = rewriter.create<LoadOp>(loc, B, loopBIVs);
+    auto loadedY = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
+    auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
+    auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
+    rewriter.create<StoreOp>(loc, accumulated, alloc, loopMNIVs);
+
+    rewriter.replaceOp(op, alloc);
+
+    return matchSuccess();
+  }
+};
+
+struct ONNXUnsqueezeOpLowering : public ConversionPattern {
+  ONNXUnsqueezeOpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXUnsqueezeOp::getOperationName(), 1, ctx) {}
+
+  PatternMatchResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto loc = op->getLoc();
+    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
+    int outRank = tensorType.getRank();
+
+    // Assume that `axes` has been validated by shape inference.
+    // So, here we just get it.
+    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXUnsqueezeOp>(op).axesAttr();
+    SmallVector<int, 4> axes;
+    for (auto axisAttr : axisAttrs.getValue()) {
+      int axis = axisAttr.cast<IntegerAttr>().getInt();
+      axis = axis >= 0 ? axis : (outRank + axis);
+      axes.emplace_back(axis);
+    }
+
+    // Insert an allocation and deallocation for the result of this operation.
+    auto memRefType = convertTensorToMemRef(tensorType);
+    Value alloc;
+
+    // Compute size in bytes.
+    Value tensorSize = rewriter.create<ConstantOp>(
+        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
+                                     getMemRefEltSizeInBytes(memRefType)));
+
+    bool insertDealloc = checkInsertDealloc(op);
+    auto memRefShape = memRefType.getShape();
+    if (hasAllConstantDimensions(memRefType)) {
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      for (int i = 0; i < memRefShape.size(); ++i) {
+        Value dimVal = rewriter.create<ConstantOp>(
+            loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
+                                         memRefShape[i]));
+        tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
+      }
+    } else {
+      // Unknown dimensions are always the operand's dimensions.
+      SmallVector<Value, 4> allocOperands;
+      for (int outIdx = 0, inIdx = 0; outIdx < memRefShape.size(); ++outIdx) {
+        Value dimVal = nullptr;
+        if (memRefShape[outIdx] < 0) {
+          Value index = rewriter.create<DimOp>(loc, operands[0], inIdx);
+          dimVal = rewriter.create<IndexCastOp>(
+              loc, index, rewriter.getIntegerType(64));
+          allocOperands.emplace_back(index);
+        } else {
+          dimVal = rewriter.create<ConstantOp>(
+              loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
+                                           memRefShape[outIdx]));
+        }
+        tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
+        if (std::find(axes.begin(), axes.end(), outIdx) == axes.end())
+          inIdx++;
+      }
+      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      auto *parentBlock = alloc.getDefiningOp()->getBlock();
+      if (insertDealloc) {
+        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+    }
+    rewriter.create<KrnlMemcpyOp>(loc, alloc, operands[0], tensorSize);
+    rewriter.replaceOp(op, alloc);
     return matchSuccess();
   }
 };
@@ -1392,7 +1698,9 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
                   ONNXReshapeOpLowering, ONNXEntryPointLowering,
-                  ONNXSoftmaxOpLowering, ONNXTransposeOpLowering>(&getContext());
+                  ONNXSoftmaxOpLowering, ONNXGemmOpLowering,
+                  ONNXUnsqueezeOpLowering,
+                  ONNXTransposeOpLowering>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
