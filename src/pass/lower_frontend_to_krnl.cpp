@@ -1219,15 +1219,16 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     }
     Block &optimizationBlock = optimizedLoopsOp.region().front();
     KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
-    // Iterate over the loop nest.
+    // Iterate over the loop nest using the input shape.
+    auto inputShape = operands[0].getType().cast<MemRefType>().getShape();
     for (int i = 0; i < rank; ++i) {
-      if (memRefShape[i] < 0) {
+      if (inputShape[i] < 0) {
         pack.pushConstantBound(0);
         pack.pushOperandBound(
             rewriter.create<DimOp>(loc, operands[0], i).getResult());
       } else {
         pack.pushConstantBound(0);
-        pack.pushConstantBound(memRefShape[i]);
+        pack.pushConstantBound(inputShape[i]);
       }
     }
 

@@ -192,6 +192,15 @@ test_to_enable = [
     "test_reshape_reordered_last_dims_cpu",
     #"test_reshape_zero_and_negative_dim_cpu", <- handle nagative dim
     "test_reshape_zero_dim_cpu",
+
+    # Transpose
+    "test_transpose_default_cpu",
+    "test_transpose_all_permutations_0_cpu",
+    "test_transpose_all_permutations_1_cpu",
+    "test_transpose_all_permutations_2_cpu",
+    "test_transpose_all_permutations_3_cpu",
+    "test_transpose_all_permutations_4_cpu",
+    "test_transpose_all_permutations_5_cpu",
 ]
 
 # Extract name of all test cases.
