@@ -1263,10 +1263,6 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
         perm.emplace_back(i);
     }
 
-    for (int i=0; i<iterationBlock.getArguments().size(); ++i) {
-      printf(" perm val = %d \n", perm[i]);
-    }
-
     SmallVector<Value, 4> inLoopIVs;
     for (auto arg : iterationBlock.getArguments())
       inLoopIVs.emplace_back(arg);
@@ -1681,8 +1677,6 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   // a ranked tensor.
   populateFuncOpTypeConversionPattern(patterns, &getContext(),
                                       tensor_to_memref_converter);
-
-  module.dump();
 
   // Frontent operation lowering.
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
