@@ -1276,7 +1276,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       outLoopIVs.emplace_back(iterationBlock.getArguments()[perm[i]]);
 
     auto inVal = rewriter.create<LoadOp>(loc, operands[0], inLoopIVs);
-    rewriter.create<StoreOp>(loc, inVal, alloc, inLoopIVs);
+    rewriter.create<StoreOp>(loc, inVal, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -1570,6 +1570,18 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   }
 };
 
+struct ONNXIdentityOpLowering : public ConversionPattern {
+  ONNXIdentityOpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXIdentityOp::getOperationName(), 1, ctx) {}
+
+  PatternMatchResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
+    rewriter.replaceOp(op, operands[0]);
+    return matchSuccess();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
 //===----------------------------------------------------------------------===//
@@ -1670,6 +1682,8 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   populateFuncOpTypeConversionPattern(patterns, &getContext(),
                                       tensor_to_memref_converter);
 
+  module.dump();
+
   // Frontent operation lowering.
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
@@ -1699,8 +1713,8 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
                   ONNXReshapeOpLowering, ONNXEntryPointLowering,
                   ONNXSoftmaxOpLowering, ONNXGemmOpLowering,
-                  ONNXUnsqueezeOpLowering,
-                  ONNXTransposeOpLowering>(&getContext());
+                  ONNXUnsqueezeOpLowering, ONNXTransposeOpLowering,
+                  ONNXIdentityOpLowering>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
