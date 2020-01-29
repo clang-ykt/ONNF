@@ -1290,6 +1290,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   ConversionPatternRewriter &rewriter) const final {
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
+
     Value A, B, C;
     A = operands[0];
     B = operands[1];
@@ -1340,7 +1341,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
     std::vector<Value> originalLoops;
     originalLoops.reserve(numLoops);
-
     for (auto result : loopsOp.getResults()) {
       originalLoops.push_back(result);
     }
@@ -1348,7 +1348,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, numLoops);
     std::vector<Value> optimizedLoops;
     optimizedLoops.reserve(numLoops);
-
     for (auto result : optimizedLoopsOp.getResults()) {
       optimizedLoops.push_back(result);
     }
