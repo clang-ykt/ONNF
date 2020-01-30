@@ -93,6 +93,19 @@ test_to_enable = [
     "test_exp_cpu",
     "test_exp_example_cpu",
 
+    # Gemm Op:
+    "test_gemm_all_attributes_cpu",
+    "test_gemm_alpha_cpu",
+    "test_gemm_beta_cpu",
+    "test_gemm_default_matrix_bias_cpu",
+    # "test_gemm_default_no_bias_cpu", <- error, need support for optional operands
+    # "test_gemm_default_scalar_bias_cpu", <- error, shapes mismatch, why?
+    "test_gemm_default_single_elem_vector_bias_cpu",
+    "test_gemm_default_vector_bias_cpu",
+    "test_gemm_default_zero_bias_cpu",
+    "test_gemm_transposeA_cpu",
+    "test_gemm_transposeB_cpu",
+
     # Hard Sigmoid Op:
     "test_hardsigmoid_cpu",
     "test_hardsigmoid_default_cpu",
@@ -104,14 +117,14 @@ test_to_enable = [
     "test_leakyrelu_example_cpu",
 
     # Max Op:
-    # "test_max_example_cpu", <- error
+    "test_max_example_cpu",
     "test_max_one_input_cpu",
-    # "test_max_two_inputs_cpu", <- error
+    "test_max_two_inputs_cpu",
 
     # Min Op:
-    # "test_min_example_cpu", <- error
+    "test_min_example_cpu",
     "test_min_one_input_cpu",
-    # "test_min_two_inputs_cpu", <- error
+    "test_min_two_inputs_cpu",
 
     # Mul Op:
     "test_mul_cpu",
@@ -138,10 +151,24 @@ test_to_enable = [
     "test_softmax_example_cpu",
     "test_softmax_large_number_cpu",
 
+    # Sqrt Op:
+    "test_sqrt_cpu",
+    "test_sqrt_example_cpu",
+
     # Sum Op:
-    #"test_sum_example_cpu", <- error
+    "test_sum_example_cpu",
     "test_sum_one_input_cpu",
-    #"test_sum_two_inputs_cpu", <- error
+    "test_sum_two_inputs_cpu",
+
+    # Unsqueeze Op:
+    "test_unsqueeze_axis_0_cpu",
+    "test_unsqueeze_axis_1_cpu",
+    "test_unsqueeze_axis_2_cpu",
+    "test_unsqueeze_axis_3_cpu",
+    "test_unsqueeze_negative_axes_cpu",
+    "test_unsqueeze_three_axes_cpu",
+    "test_unsqueeze_two_axes_cpu",
+    "test_unsqueeze_unsorted_axes_cpu",
 
     # Reciprocal Op:
     "test_reciprocal_cpu",
@@ -154,6 +181,17 @@ test_to_enable = [
     # SoftsignOp:
     "test_softsign_cpu",
     "test_softsign_example_cpu",
+
+    # ReshapeOp:
+    "test_reshape_extended_dims_cpu",
+    #"test_reshape_negative_dim_cpu", <- handle nagative dim
+    #"test_reshape_negative_extended_dims_cpu", <- handle nagative dim
+    "test_reshape_one_dim_cpu",
+    "test_reshape_reduced_dims_cpu",
+    "test_reshape_reordered_all_dims_cpu",
+    "test_reshape_reordered_last_dims_cpu",
+    #"test_reshape_zero_and_negative_dim_cpu", <- handle nagative dim
+    "test_reshape_zero_dim_cpu",
 ]
 
 # Extract name of all test cases.

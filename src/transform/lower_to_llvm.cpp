@@ -83,11 +83,17 @@ public:
     Value int64Size = rewriter.create<LLVM::SExtOp>(
         loc, LLVM::LLVMType::getInt64Ty(llvmDialect), operands[2]);
 
+    // Is volatile (set to false).
+    Value isVolatile = rewriter.create<LLVM::ConstantOp>(
+        loc, LLVM::LLVMType::getInt1Ty(llvmDialect),
+        rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
+
     // Memcpy call
     rewriter.create<CallOp>(
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
         ArrayRef<Value>(
-            {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size}));
+            {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
+             isVolatile}));
 
     rewriter.eraseOp(op);
     return matchSuccess();
@@ -107,9 +113,10 @@ private:
     auto llvmVoidTy = LLVM::LLVMType::getVoidTy(llvmDialect);
     auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
     auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+    auto llvmI1Ty = LLVM::LLVMType::getInt1Ty(llvmDialect);
     auto llvmFnType = LLVM::LLVMType::getFunctionTy(
         llvmVoidTy,
-        ArrayRef<mlir::LLVM::LLVMType>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty}),
+        ArrayRef<mlir::LLVM::LLVMType>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
         false);
 
     // Insert the memcpy function into the body of the parent module.
@@ -453,6 +460,67 @@ private:
     }
   }
 };
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlSqrlOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlSqrtOpLowering : public ConversionPattern {
+public:
+  explicit KrnlSqrtOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlSqrtOp::getOperationName(), 1, context) {}
+
+  PatternMatchResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override {
+    OperandAdaptor<KrnlSqrtOp> adaptor(operands);
+    LLVM::LLVMType operandType =
+        adaptor.operand().getType().dyn_cast_or_null<LLVM::LLVMType>();
+
+    if (!operandType)
+      return matchFailure();
+
+    std::string functionName;
+    if (operandType.isFloatTy())
+      functionName = "llvm.sqrt.f32";
+    else if (operandType.isDoubleTy())
+      functionName = "llvm.sqrt.f64";
+    else
+      assert(false && "Unsupported operand type.");
+
+    // Get a symbol reference to the sqrt function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto sqrtRef =
+        getOrInsertSqrt(rewriter, parentModule, functionName, operandType);
+
+    // Sqrt call
+    rewriter.replaceOpWithNewOp<LLVM::CallOp>(op, operandType, sqrtRef,
+                                              adaptor.operand());
+
+    return matchSuccess();
+  }
+
+private:
+  /// Return a symbol reference to the sqrt function, inserting it into the
+  /// module if necessary.
+  static FlatSymbolRefAttr getOrInsertSqrt(PatternRewriter &rewriter,
+                                           ModuleOp module, std::string fnName,
+                                           LLVM::LLVMType operandType) {
+    auto *context = module.getContext();
+    if (module.lookupSymbol<LLVM::LLVMFuncOp>(fnName))
+      return SymbolRefAttr::get(fnName, context);
+    // Create a function declaration for sqrt, the signature is:
+    //   * `float (float)`
+    auto llvmFnType =
+        LLVM::LLVMType::getFunctionTy(operandType, operandType, false);
+
+    // Insert the sqrt function into the body of the parent module.
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), fnName, llvmFnType);
+    return SymbolRefAttr::get(fnName, context);
+  }
+};
 } // end namespace
 
 //===----------------------------------------------------------------------===//
@@ -482,8 +550,8 @@ void KrnlToLLVMLoweringPass::runOnModule() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
-  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
-      &getContext());
+  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering,
+                  KrnlSqrtOpLowering>(&getContext());
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

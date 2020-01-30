@@ -183,6 +183,14 @@ void ONNXSoftsignOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Sqrt
+/// Infer the output shape of the ONNXSqrtOp. This method is required by
+/// the shape inference interface.
+void ONNXSqrtOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Add
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.
@@ -343,17 +351,134 @@ void ONNXMatMulOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return;
+
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+
   SmallVector<int64_t, 2> dims;
-  dims.emplace_back(lhsTy.getShape()[0]);
-  dims.emplace_back(rhsTy.getShape()[1]);
+  auto lhsShape = lhsTy.getShape();
+  auto rhsShape = rhsTy.getShape();
+
+  if (lhsShape.size() < 1 && rhsShape.size() < 1) {
+    // Multiplication by scalars is not allowed.
+    emitError("Multiplication by scalar arguments not allowed.");
+  } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
+    // Special case when both arrays are 1-dimensional and according to
+    // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
+    // need to be removed after the multiplication but cannot be removed if all
+    // sizes are 1.
+    if (lhsShape[0] != -1 && rhsShape[0] != -1 &&
+        lhsShape[0] != rhsShape[0])
+      emitError("Attempt to multiply incompatible matrices.");
+    dims.emplace_back(1);
+  } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
+    // If the first argument is 1-D, it is promoted to a matrix by prepending a
+    // 1 to its dimensions. After matrix multiplication the prepended 1 is
+    // removed.
+    //
+    // N MATMUL (s1 x s2 x... x sK x N x P)
+    // =>
+    // (s1 x s2 x... x sK x P)
+
+    // Check legality of matrix multiplication.
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[0] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[0] != rhsShape[rhsRank - 2])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    for (int i = 0; i < rhsRank - 2; ++i)
+      dims.emplace_back(rhsShape[i]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
+    // If the second argument is 1-D, it is promoted to a matrix by appending a
+    // 1 to its dimensions. After matrix multiplication the appended 1 is
+    // removed.
+    //
+    // (s1 x s2 x... x sK x M x N) MATMUL N
+    // =>
+    // (s1 x s2 x... x sK x M)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[0])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    for (int i = 0; i < lhsRank - 2; ++i)
+      dims.emplace_back(lhsShape[i]);
+    dims.emplace_back(lhsShape[lhsRank - 2]);
+  } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[0])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    for (int i = 0; i < lhsRank - 1; ++i)
+      dims.emplace_back(lhsShape[i]);
+    dims.emplace_back(rhsShape[1]);
+  } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
+    // (M x N) MATMUL (s1 x s2 x... x sK x N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[1] != rhsShape[rhsRank - 2])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    for (int i = 0; i < rhsRank - 2; ++i)
+      dims.emplace_back(rhsShape[i]);
+    dims.emplace_back(lhsShape[0]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else if (lhsShape.size() > 2 && rhsShape.size() > 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (t1 x t2 x... x tK x N x P)
+    // =>
+    // (u1 x u2 x... x uK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    // Check and perform broadcasting for the shapes.
+    SmallVector<int64_t, 2> lhsBcastShape;
+    for (int i = 0; i < lhsRank - 2; ++i)
+      lhsBcastShape.emplace_back(lhsShape[i]);
+    SmallVector<int64_t, 2> rhsBcastShape;
+    for (int i = 0; i < rhsRank - 2; ++i)
+      rhsBcastShape.emplace_back(rhsShape[i]);
+    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
+      emitError("Broadcasted dimensions are incompatible.");
+
+    dims.emplace_back(lhsShape[lhsRank - 2]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else {
+    // This case covers all remaining combinations of 1 and 2-D matrices.
+    int64_t lhsDim = lhsShape[0];
+    int64_t rhsDim = rhsShape[0];
+    if (lhsShape.size() > 1) {
+      lhsDim = lhsShape[1];
+      dims.emplace_back(lhsShape[0]);
+    }
+
+    // Check legality of matrix multiplication.
+    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
+      emitError("Attempt to multiply incompatible matrices.");
+
+    if (rhsShape.size() > 1)
+      dims.emplace_back(rhsShape[1]);
+  }
+
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
-
-// TODO:
-//   Verify that matrix sizes are valid.
-//   Take into account the dimensionality of the matrix.
 
 //===----------------------------------------------------------------------===//
 
@@ -362,13 +487,37 @@ void ONNXMatMulOp::inferShapes() {
 void ONNXGemmOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      !getOperand(1).getType().isa<RankedTensorType>() ||
+      !getOperand(2).getType().isa<RankedTensorType>())
     return;
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  auto biasTy = getOperand(2).getType().cast<RankedTensorType>();
+
+  int64_t M, N, K_A, K_B;
+  M = (transA() == 0) ? lhsTy.getShape()[0] : lhsTy.getShape()[1];
+  K_A = (transA() == 0) ? lhsTy.getShape()[1] : lhsTy.getShape()[0];
+  N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
+  K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
+
+  if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
+    emitError("Tensor shapes mismatched.");
+  }
+
+  // Check whether bias is unidirectional broadcasting or not.
+  auto shape = biasTy.getShape();
+  int rank = shape.size();
+  if ((rank > 2) ||
+      (rank >= 1 && shape[rank - 1] != -1 && N != -1 && N != shape[rank - 1] &&
+       shape[rank - 1] != 1) ||
+      (rank == 2 && shape[rank - 2] != -1 && M != -1 && M != shape[rank - 2] &&
+       shape[rank - 2] != 1)) {
+    emitError("Bias shape mismatched.");
+  }
+
   SmallVector<int64_t, 2> dims;
-  dims.emplace_back(lhsTy.getShape()[0]);
-  dims.emplace_back(rhsTy.getShape()[1]);
+  dims.emplace_back(M);
+  dims.emplace_back(N);
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
 
@@ -607,7 +756,7 @@ void ONNXConvNoBiasOp::inferShapes() {
 
 void ONNXMaxPoolSingleOutOp::inferShapes() {
   // Cannot infer shape if no shape exists.
-  if (!getOperand().getType().isa<RankedTensorType>())
+  if (!X().getType().isa<RankedTensorType>())
     return;
 
   // 1) get shape of input
@@ -633,10 +782,10 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   SmallVector<int64_t, 4> actualDilations;
   auto dilationsOpt = dilations();
   if (dilationsOpt.hasValue()) {
-    if (dilationsOpt.getValue().size() != kernelSize)
+    auto dilationsArray = dilationsOpt.getValue().getValue(); // opt -> attr -> array
+    if (dilationsArray.size() != kernelSize)
         emitError("dialation size is not the same as the spatial size.");
     // fill in the actual values
-    auto dilationsArray = dilationsOpt.getValue().getValue(); // opt -> attr -> array
     for (int i = 0; i < kernelSize; ++i) {
       // Padding for beginning of axis.
       int64_t d = (dilationsArray[i]).cast<IntegerAttr>().getInt();
@@ -656,10 +805,10 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   SmallVector<int64_t, 4> actualStrides;
   auto stridesOpt = strides();
   if (stridesOpt.hasValue()) {
-    if (stridesOpt.getValue().size() != kernelSize)
+    auto stridesArray = stridesOpt.getValue().getValue();
+    if (stridesArray.size() != kernelSize)
         emitError("strides size is not the same as the spatial size.");
     // fill in the actual values
-      auto stridesArray = stridesOpt.getValue().getValue();
     for (int i = 0; i < kernelSize; ++i) {
       // Padding for beginning of axis.
       int64_t s = (stridesArray[i]).cast<IntegerAttr>().getInt();
@@ -681,11 +830,11 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   if (autoPad == "NOTSET") {
     auto padsOpt = pads();
     if (padsOpt.hasValue()) {
+      auto padsArray = padsOpt.getValue().getValue();
       // pads consists of two entries for each spatial axis.
-      if (padsOpt.getValue().size() != 2 * kernelSize)
+      if (padsArray.size() != 2 * kernelSize)
         emitError("pads size is not twice the spatial size.");
       // fill in the actual values
-      auto padsArray = padsOpt.getValue().getValue();
       for (int i = 0; i < 2*kernelSize; ++i) {
         // Padding for beginning of axis.
         int64_t p = (padsArray[i]).cast<IntegerAttr>().getInt();
@@ -757,6 +906,47 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   }
   auto arrayTy = getOperand().getType().cast<RankedTensorType>();
   getResult().setType(RankedTensorType::get(yShape, arrayTy.getElementType()));
+}
+
+//===----------------------------------------------------------------------===//
+
+// Unsqueeze
+
+void ONNXUnsqueezeOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return;
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  int inRank = operandTy.getRank();
+
+  ArrayAttr axisAttrs = axesAttr();
+  SmallVector<int, 4> axes;
+  int outRank = 0;
+  if (axisAttrs) {
+    outRank = inRank + axisAttrs.getValue().size();
+    for (auto axisAttr : axisAttrs.getValue()) {
+      int axis = axisAttr.cast<IntegerAttr>().getInt();
+      axis = axis >= 0 ? axis : (outRank + axis);
+      // Valid range
+      assert(axis >= -outRank && axis <= outRank - 1);
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+      else
+        emitError("Duplicated axes.");
+    }
+  } else {
+    emitError("Axes attribute is required.");
+  }
+
+  SmallVector<int64_t, 4> dims;
+  for (int i = 0, j = 0; i < outRank || j < inRank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) != axes.end()) {
+      dims.emplace_back(1);
+    } else {
+      dims.emplace_back(operandTy.getShape()[j++]);
+    }
+  }
+  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
 }
 
 //===----------------------------------------------------------------------===//
