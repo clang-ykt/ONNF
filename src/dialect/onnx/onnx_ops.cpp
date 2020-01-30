@@ -887,14 +887,14 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     auto strideSpatialShape = actualStrides[i];
     ///output_spatial_shape[i] = ceil( (input_spatial_shape[i] + pad_shape[i] - 
     //  ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
-    double nominator = inputSpatialShape + padShape - 
+    double numerator = inputSpatialShape + padShape - 
       ((kernelSpatialShape - 1) * dilations + 1);
     double denominator = strideSpatialShape;
     int64_t res;
     if (ceilMode) {
-      res = ceil(nominator / denominator) + 1;
+      res = ceil(numerator / denominator) + 1;
     } else {
-      res = floor(nominator / denominator) + 1;
+      res = floor(numerator / denominator) + 1;
     }
     yShape[kernelOffset + i] = res;
   }
