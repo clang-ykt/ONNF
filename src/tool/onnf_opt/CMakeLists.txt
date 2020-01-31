@@ -1,5 +1,5 @@
 add_executable(onnf-opt onnf_opt.cpp)
-add_dependencies(onnf-opt builder gen_krnl_ops onnf_transform onnf_shape_inference onnf_lower_frontend)
+add_dependencies(onnf-opt gen_krnl_ops)
 
 target_include_directories(onnf-opt PRIVATE ${ONNF_SRC_ROOT})
 target_include_directories(onnf-opt PRIVATE ${ONNF_BIN_ROOT})
