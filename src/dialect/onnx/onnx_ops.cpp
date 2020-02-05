@@ -61,6 +61,26 @@ ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX Helper functions
+//===----------------------------------------------------------------------===//
+
+static size_t ArrayAttrSize(ArrayAttr a) {
+  return a.size();
+}
+
+static size_t ArrayAttrSize(Optional<ArrayAttr> a) {
+  return a.getValue().size();
+}
+
+static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+}
+
+static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
+  return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Operations
 //===----------------------------------------------------------------------===//
 // Exp
@@ -757,10 +777,40 @@ void ONNXConvNoBiasOp::inferShapes() {
 
 // MaxPoolSingleOut
 
+void ONNXMaxPoolSingleOutOp::auto_padAttr(StringAttr attr) {
+  this->setAttr("auto_pad", attr);
+}
+
+void ONNXMaxPoolSingleOutOp::ceil_modeAttr(IntegerAttr attr) {
+  this->setAttr("ceil_mode", attr);
+}
+
+void ONNXMaxPoolSingleOutOp::dilationsAttr(ArrayAttr attr) {
+  this->setAttr("dilations", attr);
+}
+
+void ONNXMaxPoolSingleOutOp::kernel_shapeAttr(ArrayAttr attr) {
+  this->setAttr("kernel_shape", attr);
+}
+
+void ONNXMaxPoolSingleOutOp::padsAttr(ArrayAttr attr) {
+  this->setAttr("pads", attr);
+}
+
+void ONNXMaxPoolSingleOutOp::storage_orderAttr(IntegerAttr attr) {
+  this->setAttr("storage_order", attr);
+}
+
+void ONNXMaxPoolSingleOutOp::stridesAttr(ArrayAttr attr) {
+  this->setAttr("strides", attr);
+}
+
 void ONNXMaxPoolSingleOutOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return;
+
+  auto builder = mlir::Builder(this->getContext());
 
   // 1) get shape of input
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -772,8 +822,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   auto kernelShape = kernel_shape();
   if (!kernelShape)
     emitError("kernel_shape is a mandatory attribute for which there is no default.");
-  auto kernelShapeArray = kernelShape.getValue();
-  auto kernelRank = kernelShape.size(); 
+  auto kernelRank = ArrayAttrSize(kernelShape); 
   if (kernelRank > xRank)
     emitError("kernel_shape spatial dimension is too large.");
   auto kernelOffset = xRank - kernelRank;
@@ -785,34 +834,37 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   SmallVector<int64_t, 4> actualDilations;
   auto dilationsOpt = dilations();
   if (dilationsOpt.hasValue()) {
-    auto dilationsArray = dilationsOpt.getValue().getValue(); // opt -> attr -> array
-    if (dilationsArray.size() != kernelRank)
+    if (ArrayAttrSize(dilationsOpt) != kernelRank)
         emitError("dialation rank is not the same as the spatial rank.");
     // fill in the actual values
     for (int i = 0; i < kernelRank; ++i) {
-      int64_t d = (dilationsArray[i]).cast<IntegerAttr>().getInt();
+      int64_t d = ArrayAttrIntVal(dilationsOpt, i);
       if (d < 1) 
         emitError("dialation value must be nonzero positive.");
       actualDilations.emplace_back(d);
     }
   } else {
+    // dilatation default is needed
     for(int i=0; i < kernelRank; ++i) {
-      actualDilations.emplace_back(1);      
+      actualDilations.emplace_back(1);
     }
+    // convert to ArrayRef, then build attribute, then store attribute
+    ArrayRef<int64_t> ar(actualDilations);
+    auto actualDilationsArrayAttr = builder.getI64ArrayAttr(ar);
+    dilationsAttr(actualDilationsArrayAttr);
   }
 
   // storage order
-  
+
   // strides
   SmallVector<int64_t, 4> actualStrides;
   auto stridesOpt = strides();
   if (stridesOpt.hasValue()) {
-    auto stridesArray = stridesOpt.getValue().getValue();
-    if (stridesArray.size() != kernelRank)
+    if (ArrayAttrSize(stridesOpt) != kernelRank)
         emitError("strides rank is not the same as the spatial rank.");
     // fill in the actual values
     for (int i = 0; i < kernelRank; ++i) {
-      int64_t s = (stridesArray[i]).cast<IntegerAttr>().getInt();
+      int64_t s = ArrayAttrIntVal(stridesOpt, i);
       if (s < 1) 
         emitError("strides value must be nonzero positive.");
       actualStrides.emplace_back(s);
@@ -821,6 +873,10 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     for(int i=0; i < kernelRank; ++i) {
       actualStrides.emplace_back(1);      
     }
+    // convert to ArrayRef, then build attribute, then store attribute
+    ArrayRef<int64_t> ar(actualStrides);
+    auto actualStridesArrayAttr = builder.getI64ArrayAttr(ar);
+    stridesAttr(actualStridesArrayAttr);
   }
 
   // now try to find padding, getting auto_pad attribute first
@@ -831,13 +887,12 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   if (autoPad == "NOTSET") {
     auto padsOpt = pads();
     if (padsOpt.hasValue()) {
-      auto padsArray = padsOpt.getValue().getValue();
       // pads consists of two entries for each spatial axis.
-      if (padsArray.size() != 2 * kernelRank)
+      if (ArrayAttrSize(padsOpt) != 2 * kernelRank)
         emitError("pads rank is not twice the spatial rank.");
       // fill in the actual values
       for (int i = 0; i < 2*kernelRank; ++i) {
-        int64_t p = (padsArray[i]).cast<IntegerAttr>().getInt();
+        int64_t p = ArrayAttrIntVal(padsOpt, i);
         if (p < 0) 
           emitError("pads value must be nonnegative.");
         actualPads.emplace_back(p);
@@ -855,7 +910,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     }
     for(int i=0; i<kernelRank; ++i) {
       auto inputSpatialShape = xShape[kernelOffset  + i];
-      auto kernelSpatialShape = (kernelShapeArray[i]).cast<IntegerAttr>().getInt();
+      auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
       auto dilations = actualDilations[i];
       auto strideSpatialShape = actualStrides[i];
       int64_t outputSpatialShape = ceil((1.0 * inputSpatialShape) /
@@ -880,6 +935,14 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
       actualPads.emplace_back(0);
     }
   }
+  // set pads
+  {
+    ArrayRef<int64_t> ar(actualPads);
+    auto actualPadsArrayAttr = builder.getI64ArrayAttr(ar);
+    padsAttr(actualPadsArrayAttr);
+    auto actualAutoPadAttr = builder.getStringAttr("NOTSET");
+    auto_padAttr(actualAutoPadAttr);
+  }
 
   // initialize output shape 
   SmallVector<int64_t, 4> yShape(xShape.begin(), xShape.end());
@@ -887,7 +950,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   for(int i=0; i<kernelRank; ++i) {
     auto inputSpatialShape = xShape[kernelOffset  + i];
     auto padShape = actualPads[i] + actualPads[kernelRank+i];
-    auto kernelSpatialShape = (kernelShapeArray[i]).cast<IntegerAttr>().getInt();
+    auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
     auto dilations = actualDilations[i];
     auto strideSpatialShape = actualStrides[i];
     ///output_spatial_shape[i] = ceil( (input_spatial_shape[i] + pad_shape[i] - 
