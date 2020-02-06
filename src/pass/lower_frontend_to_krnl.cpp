@@ -1654,9 +1654,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
       subchannels =
           rewriter.create<DimOp>(loc, operands[1], 1).getResult();
     } else {
-      subchannels = rewriter.create<ConstantOp>(
-          loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-          kernelShape[1]));
+      subchannels = rewriter.create<ConstantIndexOp>(
+          loc, kernelShape[1]);
     }
 
     // 1. Define outer loops and emit empty optimization block:
