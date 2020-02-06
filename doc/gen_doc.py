@@ -45,9 +45,10 @@ ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
                    'Sum', 'Max', 'Min', 'MatMul', 'Gemm', 'LeakyRelu',
                    'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
                    'Identity', 'Cos', 'Log', 'Transpose', 'Softmax',
-                   'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze']
+                   'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze', 'Sign']
 
-CanonicalList=['Add', 'Identity']
+CanonicalList=['Add', 'Identity', 'ReduceL1', 'ReduceL2', 'ReduceLogSum',
+               'ReduceLogSumExp', 'ReduceSumSquare']
 
 manual_code_in_op_def = dict([
       ('DummyExample', '  let extraClassDeclaration = [{ \n'+

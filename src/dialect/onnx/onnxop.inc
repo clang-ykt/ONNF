@@ -1620,7 +1620,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
     " ```"
     " pad_shape[i] = (output_spatial_shape[i] - 1) * strides_spatial_shape[i] + ((kernel_spatial_shape[i] - 1) * dilations[i] + 1) - input_spatial_shape[i]"
     " ```"
-    " The output of each pooling window is maximum number of elements exclude pad."
+    " The output of each pooling window is maximum number of elements exclude pad. "
     " "
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
@@ -2266,6 +2266,7 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceL1 operation";
   let description = [{
     "Computes the L1 norm of the input tensor's element along the provided axes. The resulted"
@@ -2283,6 +2284,7 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceL2 operation";
   let description = [{
     "Computes the L2 norm of the input tensor's element along the provided axes. The resulted"
@@ -2300,6 +2302,7 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
     "Computes the log sum of the input tensor's element along the provided axes. The resulted"
@@ -2317,6 +2320,7 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
     "Computes the log sum exponent of the input tensor's element along the provided axes. The resulted"
@@ -2419,6 +2423,7 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
     "Computes the sum square of the input tensor's element along the provided axes. The resulted"
@@ -3035,7 +3040,7 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
 }
 
 def ONNXSignOp:ONNX_Op<"Sign", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sign operation";
   let description = [{
     "Calculate the sign of the given input tensor element-wise."
@@ -3571,4 +3576,3 @@ def ONNXXorOp:ONNX_Op<"Xor",
            AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
-
