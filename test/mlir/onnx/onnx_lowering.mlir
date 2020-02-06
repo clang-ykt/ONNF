@@ -568,15 +568,15 @@ func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>
   // CHECK-LABEL: test_add_with_broadcasting
   // CHECK: [[DIM1:%.+]] = dim %arg1, 0 : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM1]]) : memref<?x10xf32>
+  // CHECK: [[DIM2:%.+]] = dim %arg0, 0 : memref<?xf32>
+  // CHECK: [[ONE:%.+]] = constant 1 : index
+  // CHECK: [[IS_ONE:%.+]] = cmpi "eq", [[DIM2]], [[ONE]] : index
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK: krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK: [[DIM2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
-  // CHECK: [[DIM3:%.+]] = dim %arg0, 0 : memref<?xf32>
-  // CHECK: [[ONE:%.+]] = constant 1 : index
-  // CHECK: [[IS_ONE:%.+]] = cmpi "eq", [[DIM3]], [[ONE]] : index
-  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM2]], [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
+  // CHECK: [[DIM3:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM3]], [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
   // CHECK: [[ZERO:%.+]] = constant 0 : index
   // CHECK: %[[SELECT1:.+]] = select [[IS_ONE]], [[ZERO]], %arg3 : index
   // CHECK: [[LOAD1:%.+]] = load %arg0[%[[SELECT1]]] : memref<?xf32>
