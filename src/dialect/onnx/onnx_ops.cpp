@@ -831,52 +831,50 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   auto ceilMode = ceil_mode().getSExtValue();
 
   // dilatation
-  SmallVector<int64_t, 4> actualDilations;
   auto dilationsOpt = dilations();
   if (dilationsOpt.hasValue()) {
     if (ArrayAttrSize(dilationsOpt) != kernelRank)
         emitError("dialation rank is not the same as the spatial rank.");
-    // fill in the actual values
+    // test the values
     for (int i = 0; i < kernelRank; ++i) {
-      int64_t d = ArrayAttrIntVal(dilationsOpt, i);
-      if (d < 1) 
+      if (ArrayAttrIntVal(dilationsOpt, i) < 1) 
         emitError("dialation value must be nonzero positive.");
-      actualDilations.emplace_back(d);
     }
   } else {
     // dilatation default is needed
+    SmallVector<int64_t, 4> defaultVals;
     for(int i=0; i < kernelRank; ++i) {
-      actualDilations.emplace_back(1);
+      defaultVals.emplace_back(1);
     }
     // convert to ArrayRef, then build attribute, then store attribute
-    ArrayRef<int64_t> ar(actualDilations);
-    auto actualDilationsArrayAttr = builder.getI64ArrayAttr(ar);
-    dilationsAttr(actualDilationsArrayAttr);
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto defaultAttr = builder.getI64ArrayAttr(defaultRefs);
+    dilationsAttr(defaultAttr);
+    dilationsOpt = dilations();
   }
 
   // storage order
 
   // strides
-  SmallVector<int64_t, 4> actualStrides;
   auto stridesOpt = strides();
   if (stridesOpt.hasValue()) {
     if (ArrayAttrSize(stridesOpt) != kernelRank)
         emitError("strides rank is not the same as the spatial rank.");
     // fill in the actual values
     for (int i = 0; i < kernelRank; ++i) {
-      int64_t s = ArrayAttrIntVal(stridesOpt, i);
-      if (s < 1) 
+      if (ArrayAttrIntVal(stridesOpt, i) < 1) 
         emitError("strides value must be nonzero positive.");
-      actualStrides.emplace_back(s);
     }
   } else {
+    SmallVector<int64_t, 4> defaultVals;
     for(int i=0; i < kernelRank; ++i) {
-      actualStrides.emplace_back(1);      
+      defaultVals.emplace_back(1);      
     }
     // convert to ArrayRef, then build attribute, then store attribute
-    ArrayRef<int64_t> ar(actualStrides);
-    auto actualStridesArrayAttr = builder.getI64ArrayAttr(ar);
-    stridesAttr(actualStridesArrayAttr);
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto defaultAttr = builder.getI64ArrayAttr(defaultRefs);
+    stridesAttr(defaultAttr);
+    stridesOpt = strides();
   }
 
   // now try to find padding, getting auto_pad attribute first
@@ -911,8 +909,8 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     for(int i=0; i<kernelRank; ++i) {
       auto inputSpatialShape = xShape[kernelOffset  + i];
       auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
-      auto dilations = actualDilations[i];
-      auto strideSpatialShape = actualStrides[i];
+      auto dilations = ArrayAttrIntVal(dilationsOpt, i);
+      auto strideSpatialShape = ArrayAttrIntVal(stridesOpt, i);
       int64_t outputSpatialShape = ceil((1.0 * inputSpatialShape) /
         (1.0 * strideSpatialShape));
       auto sumOfPad = (outputSpatialShape - 1) * strideSpatialShape + 
@@ -937,11 +935,11 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   }
   // set pads
   {
-    ArrayRef<int64_t> ar(actualPads);
-    auto actualPadsArrayAttr = builder.getI64ArrayAttr(ar);
-    padsAttr(actualPadsArrayAttr);
-    auto actualAutoPadAttr = builder.getStringAttr("NOTSET");
-    auto_padAttr(actualAutoPadAttr);
+    ArrayRef<int64_t> defaultRefs(actualPads);
+    auto defaultAttr = builder.getI64ArrayAttr(defaultRefs);
+    padsAttr(defaultAttr);
+    auto defaultAutoPadAttr = builder.getStringAttr("NOTSET");
+    auto_padAttr(defaultAutoPadAttr);
   }
 
   // initialize output shape 
@@ -951,8 +949,8 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     auto inputSpatialShape = xShape[kernelOffset  + i];
     auto padShape = actualPads[i] + actualPads[kernelRank+i];
     auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
-    auto dilations = actualDilations[i];
-    auto strideSpatialShape = actualStrides[i];
+    auto dilations = ArrayAttrIntVal(dilationsOpt, i);
+    auto strideSpatialShape = ArrayAttrIntVal(stridesOpt, i);
     ///output_spatial_shape[i] = ceil( (input_spatial_shape[i] + pad_shape[i] - 
     //  ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
     double numerator = inputSpatialShape + padShape - 
