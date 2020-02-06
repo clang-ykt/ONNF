@@ -204,6 +204,9 @@ test_to_enable = [
 
     # Conv
     "test_basic_conv_without_padding_cpu",
+
+    # Sign Op:
+    "test_sign_cpu",
 ]
 
 # Extract name of all test cases.
