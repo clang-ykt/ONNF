@@ -46,7 +46,7 @@ jobs:
           command: cd ONNF/build && cmake --build . --target check-doc
       - run:
           name: Ensure tablegen documentation is up-to-date
-          command:
+          command: |
             cd ONNF/build
             cmake --build . --target onnf-doc
             # Check whether dialect documentation is up-to-date.
