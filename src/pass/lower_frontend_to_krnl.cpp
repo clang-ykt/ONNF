@@ -1752,6 +1752,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     //
     // The loop nest will look as follows:
     //
+    // strides = [s1, s2]
+    //
     // kernelsPerGroup = M / group;
     // for n = 0 .. N:
     //   for g = 0 .. group:
@@ -1764,8 +1766,13 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     //             for k1 = 0 .. KH:
     //               for k2 = 0 .. KW:
     //                 R[n][kernel][r1][r2] =
-    //                   D[n][g * (C / group) + c][r1 + k1][r2 + k2] *
+    //                   D[n][g * (C / group) + c][s1 * r1 + k1][s2 * r2 + k2] *
     //                   K[kernel][c][k1][k2];
+    //
+    // Naming:
+    //   n, g, m: outer loop nest indices
+    //   r1, r2: spatial loop nest indices
+    //   c, k2, k2: inner loop nest indices
     //
     // TODO: handle padding.
     //
@@ -1913,7 +1920,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
         {
           // 4. Emit inner loop body
           // R[n][kernel][r1][r2] =
-          //   D[n][g * (C / group) + c][r1 + k1][r2 + k2] *
+          //   D[n][g * (C / group) + c][s1 * r1 + k1][s2 * r2 + k2] *
           //   K[kernel][c][k1][k2];
 
           // 4.1 Prepare indices for accesing the data tensor.
@@ -1927,12 +1934,24 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
                 rewriter.create<MulIOp>(loc, subchannels,
                     outerIterationBlock.getArguments()[1]));
           dataIndices.emplace_back(channelDepth);
-          // rX + kX
-          for (int i = 0; i < kernelShape.size() - 2; ++i)
+          // sX * rX + kX
+          auto stridesAttribute = convOp.stridesAttr();
+          // Read strides attribute
+          SmallVector<int, 4> strides;
+          if (stridesAttribute)
+            for (auto stride : stridesAttribute.getValue())
+              strides.emplace_back(stride.cast<IntegerAttr>().getInt());
+          for (int i = 0; i < kernelShape.size() - 2; ++i) {
+            Value spatialIndex = spatialIterationBlock.getArguments()[i];
+            // If strides are present then emit the correct access index.
+            if (stridesAttribute)
+              spatialIndex = rewriter.create<MulIOp>(loc,
+                  rewriter.create<ConstantIndexOp>(loc, strides[i]),
+                  spatialIterationBlock.getArguments()[i]);
             dataIndices.emplace_back(
-                rewriter.create<AddIOp>(loc,
-                    spatialIterationBlock.getArguments()[i],
+                rewriter.create<AddIOp>(loc, spatialIndex,
                     innerIterationBlock.getArguments()[i+1]));
+          }
 
           // 4.2 Prepare indices for accessing the kernel tensor.
           SmallVector<Value, 4> kernelIndices;
