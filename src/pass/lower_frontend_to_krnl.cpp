@@ -1772,7 +1772,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     // Naming:
     //   n, g, m: outer loop nest indices
     //   r1, r2: spatial loop nest indices
-    //   c, k2, k2: inner loop nest indices
+    //   c, k1, k2: inner loop nest indices
     //
     // TODO: handle padding.
     //
@@ -1944,7 +1944,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
           for (int i = 0; i < kernelShape.size() - 2; ++i) {
             Value spatialIndex = spatialIterationBlock.getArguments()[i];
             // If strides are present then emit the correct access index.
-            if (stridesAttribute)
+            if (stridesAttribute && strides[i] > 1)
               spatialIndex = rewriter.create<MulIOp>(loc,
                   rewriter.create<ConstantIndexOp>(loc, strides[i]),
                   spatialIterationBlock.getArguments()[i]);
