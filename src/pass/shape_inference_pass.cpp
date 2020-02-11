@@ -103,6 +103,7 @@ public:
         op->getName().getStringRef() != "onnx.Reciprocal" &&
         op->getName().getStringRef() != "onnx.Softplus" &&
         op->getName().getStringRef() != "onnx.Softsign" &&
+        op->getName().getStringRef() != "onnx.Sign" &&
         op->getName().getStringRef() != "onnx.Mul" &&
         op->getName().getStringRef() != "onnx.Add" &&
         op->getName().getStringRef() != "onnx.Div" &&
@@ -120,6 +121,10 @@ public:
         op->getName().getStringRef() != "onnx.GemmNoBias" &&
         op->getName().getStringRef() != "onnx.Reshape" &&
         op->getName().getStringRef() != "onnx.Transpose" &&
+        op->getName().getStringRef() != "onnx.ReduceMax" &&
+        op->getName().getStringRef() != "onnx.ReduceMin" &&
+        op->getName().getStringRef() != "onnx.ReduceProd" &&
+        op->getName().getStringRef() != "onnx.ReduceSum" &&
         op->getName().getStringRef() != "onnx.Softmax" &&
         op->getName().getStringRef() != "onnx.Sqrt" &&
         op->getName().getStringRef() != "onnx.ConvNoBias" &&
