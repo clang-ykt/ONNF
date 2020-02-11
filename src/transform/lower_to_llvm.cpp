@@ -261,8 +261,7 @@ public:
     // it in the wrapped Output.
     auto outMemRef = outputMemRefs.getResult(0);
     auto outMemRefTy = outMemRef.getType().dyn_cast<LLVMType>();
-    auto outMemRefRank =
-        outMemRefTy.getStructElementType(3).getArrayNumElements();
+    auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
     auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
     auto outDynMemRef = callApi(rewriter, loc, apiRegistry,
@@ -345,6 +344,17 @@ private:
     return *entryPointEntryBlock;
   }
 
+  size_t getRankFromMemRefType(LLVM::LLVMType memRefTy) const{
+      // MemRef type will contain either 3 or 5 elements, if the memref
+      // refers to a scalar, only 3 elements will be present.
+      // c.f. https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
+      bool isScalar = memRefTy.getStructNumElements() == 3;
+      assert((isScalar || memRefTy.getStructNumElements() == 5) && "Expect MemRef type to contain either 3 or 5 elements.");
+      printf("start\n");
+      return (isScalar ? 0 : memRefTy.getStructElementType(3).getArrayNumElements());
+      printf("end\n");
+  }
+
   void fillPtrToMemRefWithDynMemRef(Value &dynMemRef, Value &ptrToMemRef,
                                     PatternRewriter &rewriter,
                                     const Location &loc,
@@ -376,7 +386,7 @@ private:
         rewriter.getArrayAttr({rewriter.getI32IntegerAttr(2)}));
 
     // Get rank, sizes array ptr and strides array ptr.
-    auto rank = memRefTy.getStructElementType(3).getArrayNumElements();
+    auto rank = getRankFromMemRefType(memRefTy);
     auto sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {dynMemRef});
     auto stridesArrayPtr =
@@ -428,7 +438,7 @@ private:
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
             {outDynMemRef, outMemRefDataPtr});
 
-    auto rank = outMemRefTy.getStructElementType(3).getArrayNumElements();
+    auto rank = getRankFromMemRefType(outMemRefTy);
     auto sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {outDynMemRef});
     auto stridesArrayPtr =
