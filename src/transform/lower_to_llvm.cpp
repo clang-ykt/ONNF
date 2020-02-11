@@ -91,9 +91,8 @@ public:
     // Memcpy call
     rewriter.create<CallOp>(
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
-        ArrayRef<Value>(
-            {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
-             isVolatile}));
+        ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
+                         int64Size, isVolatile}));
 
     rewriter.eraseOp(op);
     return matchSuccess();
@@ -116,7 +115,8 @@ private:
     auto llvmI1Ty = LLVM::LLVMType::getInt1Ty(llvmDialect);
     auto llvmFnType = LLVM::LLVMType::getFunctionTy(
         llvmVoidTy,
-        ArrayRef<mlir::LLVM::LLVMType>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
+        ArrayRef<mlir::LLVM::LLVMType>(
+            {llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
         false);
 
     // Insert the memcpy function into the body of the parent module.
@@ -344,15 +344,21 @@ private:
     return *entryPointEntryBlock;
   }
 
-  size_t getRankFromMemRefType(LLVM::LLVMType memRefTy) const{
-      // MemRef type will contain either 3 or 5 elements, if the memref
-      // refers to a scalar, only 3 elements will be present.
-      // c.f. https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
-      bool isScalar = memRefTy.getStructNumElements() == 3;
-      assert((isScalar || memRefTy.getStructNumElements() == 5) && "Expect MemRef type to contain either 3 or 5 elements.");
-      printf("start\n");
-      return (isScalar ? 0 : memRefTy.getStructElementType(3).getArrayNumElements());
-      printf("end\n");
+  size_t getRankFromMemRefType(LLVM::LLVMType memRefTy) const {
+    // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
+    // this struct are arrays whose size is the rank of the tensor. In the event
+    // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
+    // elements will have 0-length, which in turn causes the MemRef struct to
+    // degenerate into a 3-element struct. For more information, refer to
+    // https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
+    auto numElems = memRefTy.getStructNumElements();
+    assert((numElems == 3 || numElems == 5) &&
+           "Expect MemRef type to contain either 3 or 5 elements.");
+
+    if (numElems == 3)
+      return 0; // MemRef refers to a scalar.
+    else
+      return memRefTy.getStructElementType(3).getArrayNumElements();
   }
 
   void fillPtrToMemRefWithDynMemRef(Value &dynMemRef, Value &ptrToMemRef,
