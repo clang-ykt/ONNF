@@ -280,6 +280,23 @@ public:
   }
 
 private:
+  static size_t getRankFromMemRefType(LLVM::LLVMType memRefTy) {
+    // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
+    // this struct are arrays whose size is the rank of the tensor. In the event
+    // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
+    // elements will have 0-length, which in turn causes the MemRef struct to
+    // degenerate into a 3-element struct. For more information, refer to
+    // https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
+    auto numElems = memRefTy.getStructNumElements();
+    assert((numElems == 3 || numElems == 5) &&
+           "Expect MemRef type to contain either 3 or 5 elements.");
+
+    if (numElems == 3)
+      return 0; // MemRef refers to a scalar.
+    else
+      return memRefTy.getStructElementType(3).getArrayNumElements();
+  }
+
   using ApiRegistry = std::map<API, ApiSpec>;
 
   ApiRegistry RegisterAllApis(ModuleOp &module, PatternRewriter &rewriter,
@@ -342,23 +359,6 @@ private:
       argTypes.emplace_back(dynEntryPointFuncType.getFunctionParamType(i));
     entryPointEntryBlock->addArguments(argTypes);
     return *entryPointEntryBlock;
-  }
-
-  size_t getRankFromMemRefType(LLVM::LLVMType memRefTy) const {
-    // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
-    // this struct are arrays whose size is the rank of the tensor. In the event
-    // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
-    // elements will have 0-length, which in turn causes the MemRef struct to
-    // degenerate into a 3-element struct. For more information, refer to
-    // https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
-    auto numElems = memRefTy.getStructNumElements();
-    assert((numElems == 3 || numElems == 5) &&
-           "Expect MemRef type to contain either 3 or 5 elements.");
-
-    if (numElems == 3)
-      return 0; // MemRef refers to a scalar.
-    else
-      return memRefTy.getStructElementType(3).getArrayNumElements();
   }
 
   void fillPtrToMemRefWithDynMemRef(Value &dynMemRef, Value &ptrToMemRef,
