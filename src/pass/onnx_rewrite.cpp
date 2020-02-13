@@ -303,11 +303,14 @@ struct SplitConvOpPattern : public RewritePattern {
     auto inputShape = data.getType().cast<TensorType>().getShape();
 
     // Dimensionality of the input:
+    //              inputRank
+    //      |----------------------|
     // D : (N x C x D1 x D2 x ... DK)
     //              |______________|
-    //               dimensions = K
+    //                  inputDims
     //
-    int64_t inputDims = inputShape.size() - 2;
+    int64_t inputRank = inputShape.size();
+    int64_t inputDims = inputRank - 2;
 
     // If all pads values are equal to zero then no rewrite is required.
     bool allZeros = true;
@@ -322,37 +325,29 @@ struct SplitConvOpPattern : public RewritePattern {
       return matchFailure();
 
     // Create padding vector for the explicit padding op attribute.
-    SmallVector<int64_t, 4> pads;
-    SmallVector<int64_t, 4> newConvPads;
-    SmallVector<int64_t, 4> paddedInputShape;
-    pads.reserve(padsAttribute.getValue().size() + 4);
-    pads.emplace_back(0); pads.emplace_back(0);
-    paddedInputShape.emplace_back(inputShape[0]);
-    paddedInputShape.emplace_back(inputShape[1]);
+    SmallVector<int64_t, 4> pads(2 * inputRank, 0);
+    SmallVector<int64_t, 4> outPaddedShape(inputRank, 0);
+    outPaddedShape[0] = inputShape[0];
+    outPaddedShape[1] = inputShape[1];
     for (int i = 0; i < inputDims; ++i) {
       int64_t beginPad =
           padsAttribute.getValue()[i].cast<IntegerAttr>().getInt();
-      pads.emplace_back(beginPad);
-      newConvPads.emplace_back(0);
-      paddedInputShape.emplace_back(beginPad + inputShape[i+2]);
-    }
-    pads.emplace_back(0); pads.emplace_back(0);
-    for (int i = 0; i < inputDims; ++i) {
       int64_t endPad =
-          padsAttribute.getValue()[i + inputDims].cast<IntegerAttr>().getInt();
-      pads.emplace_back(endPad);
-      newConvPads.emplace_back(0);
-      paddedInputShape[i+2] += endPad;
+          padsAttribute.getValue()[inputDims + i].cast<IntegerAttr>().getInt();
+      pads[i + 2] = beginPad;
+      pads[inputRank + i + 2] = endPad;
+      outPaddedShape[i + 2] += beginPad + inputShape[i + 2] + endPad;
     }
 
     // Create padding operation.
     auto inputElemType = data.getType().cast<TensorType>().getElementType();
     ONNXPadConstantValuePadOp paddingOp =
         rewriter.create<ONNXPadConstantValuePadOp>(
-            loc, RankedTensorType::get(paddedInputShape, inputElemType), data,
+            loc, RankedTensorType::get(outPaddedShape, inputElemType), data,
             rewriter.getI64ArrayAttr(pads), FloatAttr::get(inputElemType, 0),
             StringAttr::get("constant", loc->getContext()));
 
+    SmallVector<int64_t, 4> newConvPads(2 * inputDims, 0);
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     ONNXConvNoBiasOp newConvOp = rewriter.create<ONNXConvNoBiasOp>(
             loc, tensorType, paddingOp.getResult(), convOp.getOperands()[1],
