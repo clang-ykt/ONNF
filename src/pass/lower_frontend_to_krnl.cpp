@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include <map>
+#include <limits>
 
 #include "mlir/Dialect/AffineOps/AffineOps.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
@@ -2040,6 +2041,125 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
   }
 };
 
+// aee
+struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
+  ONNXConvNoBiasOpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXMaxPoolSingleOutOp::getOperationName(), 1, ctx) {}
+
+  PatternMatchResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
+    auto loc = op->getLoc();
+    // Insert an allocation and deallocation for the result of this operation.
+    auto memRefType = convertTensorToMemRef(tensorType);
+    Value alloc;
+    bool insertDealloc = checkInsertDealloc(op);
+    ONNXMaxPoolSingleOutOp poolOp = llvm::dyn_cast<ONNXMaxPoolSingleOutOp>(op);
+
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
+                                    {operands[0]});
+
+    auto resultShape = memRefType.getShape();
+    auto inputShape = operands[0].getType().cast<MemRefType>().getShape();
+
+    // R = MaxPool(I)
+    //
+    // the input/output shapes look like this:
+    // I (NxCxHxW) -> R (NxCxRHxRW)
+    // 
+    // higher dimension reductions are possible HxW -> D1 x D2 x ... Dn
+    //
+    // for n in 0..N
+    //   for c in 0..C
+    //     for h in 0..RH
+    //        for w in 0..RW
+    //           R[n][c][h][w] = -inf
+    //           for kh = 0.. KH
+    //             for kw = 0 .. KW
+    //                 R[n][c][h][w] = Max(R[n][c][h][w], 
+    //                                     I[n][c][sh*h + dh*kh][sw*w + dw+kw])
+    //
+    // Naming:
+    //  n, c: outer loop nest indices
+    //  h, w: spacial loop nest indices
+    //  kh, kw: inner loop nest indices
+    //  sh, sw: strides (spacial, input/output values used)
+    //  dh, dw: dilation (spacial, on whether the filter for max has holes)
+
+    auto zero = rewriter.create<ConstantOp>(
+        loc, FloatAttr::get(memRefType.getElementType(), 
+        std::numeric_limit<float>:min()));
+    // 1. Define outer loops and emit empty optimization block:
+    int64_t nOuterLoops = 2;
+    std::vector<Value> outerLoops;
+    std::vector<Value> optimizedOuterLoops;
+    Block *optimizationBlock = defineLoops(rewriter, loc, outerLoops,
+        optimizedOuterLoops, nOuterLoops);
+    // Prepare iteration arguments over outer loop nest.
+    KrnlIterateOperandPack pack(
+        rewriter, outerLoops, optimizedOuterLoops);
+    //   for n = 0 .. N:
+    pack.pushConstantBound(0);
+    if (inputShape[0] < 0)
+      pack.pushOperandBound(
+          rewriter.create<DimOp>(loc, operands[0], 0).getResult());
+    else
+      pack.pushConstantBound(inputShape[0]);
+    //   for c = 0 .. C:
+    pack.pushConstantBound(0);
+    if (inputShape[1] < 0)
+      pack.pushOperandBound(
+          rewriter.create<DimOp>(loc, operands[0], 1).getResult());
+    else
+      pack.pushConstantBound(inputShape[1]);
+    // Outer loop iteration.
+    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
+    Block &outerIterationBlock = iterateOp.bodyRegion().front();
+    // Emit optimizations for outer loops:
+    rewriter.setInsertionPointToEnd(optimizationBlock);
+    rewriter.create<KrnlReturnLoopsOp>(loc, outerLoops);
+    rewriter.setInsertionPointToStart(&outerIterationBlock);
+
+    {
+      // 2. Emit the body of the outer loop nest.
+
+      // 2.1 Compute kernel order number: kernel = g * kernelsPerGroup + m;
+      // If group is not set then the value of the kernel ID is
+      // identical to that of the loop over kernels.
+      Value kernel = outerIterationBlock.getArguments()[1];
+
+      // 2.2 Define spatial loops
+      int64_t nSpatialLoops = resultShape.size() - 2;
+      std::vector<Value> spatialLoops;
+      std::vector<Value> optimizedSpatialLoops;
+      Block *optSpatialLoopBlock = defineLoops(rewriter, loc, spatialLoops,
+        optimizedSpatialLoops, nSpatialLoops);
+
+      // 2.3 Prepare iteration arguments for spatial loop nest.
+      KrnlIterateOperandPack spatialPack(
+        rewriter, spatialLoops, optimizedSpatialLoops);
+      for (int i = 2; i < resultShape.size(); ++i)
+        addDimensionToPack(rewriter, loc, spatialPack, alloc, i);
+
+      // 2.4 Emit loop nest over output spatial dimensions.
+      //   for rX = 0 .. RX
+      auto spatialIterateOp =
+          rewriter.create<KrnlIterateOp>(loc, spatialPack);
+      Block &spatialIterationBlock = spatialIterateOp.bodyRegion().front();
+      // 2.5 Emit optimizations for outer loops:
+      rewriter.setInsertionPointToEnd(optSpatialLoopBlock);
+      rewriter.create<KrnlReturnLoopsOp>(loc, spatialLoops);
+      rewriter.setInsertionPointToStart(&spatialIterationBlock);
+
+    }
+
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Reduction ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
@@ -2362,7 +2482,8 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXReductionOpLowering<mlir::ONNXReduceSumOp>,
                   ONNXSoftmaxOpLowering, ONNXGemmOpLowering,
                   ONNXUnsqueezeOpLowering, ONNXTransposeOpLowering,
-                  ONNXIdentityOpLowering, ONNXConvNoBiasOpLowering
+                  ONNXIdentityOpLowering, ONNXConvNoBiasOpLowering,
+                  ONNXMaxPoolSingleOutOpLowering
                   >(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
