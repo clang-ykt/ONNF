@@ -732,7 +732,7 @@ void ONNXConvNoBiasOp::inferShapes() {
 
   // Lowest supported convolution is a one dimensional convolution.
   if (dataShape.size() < 3)
-    emitError("Data input shape must be at least (NxCxW).");
+    emitError("Data input shape must be at least (NxCxD1).");
 
   // Check that shape of weight and data have same length.
   if (dataShape.size() != weightShape.size())
