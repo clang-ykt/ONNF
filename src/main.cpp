@@ -22,15 +22,19 @@
 #include "src/pass/passes.hpp"
 
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/Passes.h"
+#include <mlir/Dialect/AffineOps/AffineOps.h>
+#include <mlir/Dialect/StandardOps/Ops.h>
 
 void EmitLLVMBitCode(const mlir::OwningModuleRef &module);
 
@@ -69,6 +73,10 @@ void EmitLLVMBitCode(const mlir::OwningModuleRef &module) {
 }
 
 int main(int argc, char *argv[]) {
+  mlir::registerDialect<mlir::StandardOpsDialect>();
+  mlir::registerDialect<mlir::AffineOpsDialect>();
+  mlir::registerDialect<mlir::LLVM::LLVMDialect>();
+
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
 
@@ -135,11 +143,10 @@ int main(int argc, char *argv[]) {
   if (mlir::failed(pm.run(*module)))
     return 4;
 
-
   if (emissionTarget == EmitLLVMBC) {
-      // Write LLVM bitcode to disk.
-      EmitLLVMBitCode(module);
-      printf("LLVM bitcode written to ./model.bc");
+    // Write LLVM bitcode to disk.
+    EmitLLVMBitCode(module);
+    printf("LLVM bitcode written to ./model.bc");
   } else
     module->dump();
 
