@@ -71,7 +71,7 @@ find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
-find_mlir_lib(MLIROptMain)
+find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
@@ -122,7 +122,7 @@ set(MLIRLibsOnce
         ${MLIRLLVMIR}
         ${MLIRLoopToStandard}
         ${MLIRLoopOps}
-        ${MLIROptMain}
+        ${MLIRMlirOptMain}
         ${MLIRParser}
         ${MLIRPass}
         ${MLIRStandardOps}
