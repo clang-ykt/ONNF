@@ -57,8 +57,10 @@ endfunction(find_mlir_lib)
 find_mlir_lib(MLIRAffineOps)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAnalysis)
+find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRDialect)
 find_mlir_lib(MLIRExecutionEngine)
+find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopToStandard)
@@ -118,10 +120,12 @@ set(MLIRLibsOnce
         ${MLIRAnalysis}
         ${MLIRDialect}
         ${MLIRExecutionEngine}
+        ${MLIREDSC}
         ${MLIRIR}
         ${MLIRLLVMIR}
         ${MLIRLoopToStandard}
         ${MLIRLoopOps}
+        ${MLIRLoopAnalysis}
         ${MLIRMlirOptMain}
         ${MLIRParser}
         ${MLIRPass}
