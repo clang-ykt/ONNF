@@ -411,36 +411,30 @@ special cases:
 """
 
 def gen_code(schema,fefile) :
-
-    handle_variadic = False
-
     line_indent = '  '
     fefile.write('    '+'} else if (OpName == "'+schema.name+'") {\n')
     op_type_str='mlir::ONNX'+schema.name+'Op'
-    if schema.name in special_op_handler :
-        fefile.write('       '+special_op_handler[schema.name]+'(node, '
-          +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs)))
-    else :
-        fefile.write('       '+'ImportNode<'+op_type_str+'>(node, '
-          +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs)))
 
-    variadicIn = 'false'
-    variadicOut = 'false'
+    handler_args = ["node"]
+    if schema.name in special_op_handler:
+        handler_name = special_op_handler[schema.name]
+    else:
+        handler_name = 'ImportNode<{}>'.format(op_type_str)
+
+    expected_num_operands = str(len(schema.inputs))
+    expected_num_results = str(len(schema.outputs))
     for input in schema.inputs:
         if OpSchema.FormalParameterOption.Variadic == input.option:
-            if input.isHomogeneous:
-                variadicIn = 'true'
-                handle_variadic = True
+            expected_num_operands = '-1'
     for output in schema.outputs:
         if OpSchema.FormalParameterOption.Variadic == output.option:
-            if output.isHomogeneous:
-                variadicOut = 'true'
-    if not handle_variadic:
-        fefile.write(');\n')
-    else:
-        fefile.write(', '+variadicIn+', '+variadicOut+');\n')
+            expected_num_results = '-1'
+
+    if expected_num_operands is '-1' or expected_num_results is '-1':
+        handler_args.extend(["/*expectedNumOperands=*/" + expected_num_operands,
+                             "/*expectedNumResults=*/" + expected_num_results])
+
+    fefile.write("      {}({});\n".format(handler_name, ", ".join(handler_args)))
 
 def gen_attr_ins(schema, isfirst) :
     

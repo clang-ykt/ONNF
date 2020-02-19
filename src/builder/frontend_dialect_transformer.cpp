@@ -287,8 +287,8 @@ private:
     }
   }
 
-  std::vector<mlir::NamedAttribute> ImportNodeAttributes(
-      const onnx::NodeProto &node) {
+  std::vector<mlir::NamedAttribute>
+  ImportNodeAttributes(const onnx::NodeProto &node) {
     std::vector<mlir::NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
@@ -317,10 +317,18 @@ private:
     }
   }
 
+  /*!
+   * Import an ONNX node.
+   * @tparam T The corresponding ONNX Dialect operation type.
+   * @param node ONNX operation node protobuf object.
+   * @param expectedNumOperands expected number of operands, -1 indicates variadic.
+   * @param expectedNumResults expected number of results, -1 indicates variadic.
+   */
   template <typename T>
-  void ImportNode(const onnx::NodeProto &node, int nIn, int nOut,
-                  bool variadicIn = false,
-                  bool variadicOut = false) {
+  void ImportNode(const onnx::NodeProto &node, int expectedNumOperands = -1,
+                  int expectedNumResults = -1) {
+    bool variadicIn = expectedNumOperands == -1;
+    bool variadicOut = expectedNumResults == -1;
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
@@ -337,9 +345,8 @@ private:
     auto attributes = ImportNodeAttributes(node);
 
     llvm::StringRef OpName = node.op_type();
-
-    if ((variadicIn || nIn == inputs.size()) &&
-        (variadicOut || nOut == outputTypes.size())) {
+    if ((variadicIn || expectedNumOperands == inputs.size()) &&
+        (variadicOut || expectedNumResults == outputTypes.size())) {
       auto op =
           builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
       for (int i = 0; i < node.output().size(); i++) {
@@ -356,8 +363,7 @@ private:
    * c++ does not allow template specialization inside a class scope
    * a specialized function is used
    */
-  void
-  ImportNodeConv(onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodeConv(onnx::NodeProto node, int nIn, int nOut) {
     // Conv has attribute dilations, kernel_shape, pads, the default value of
     // which  is determined by the shape of first argument. However, since the
     // shape is unknown now, these attributes can be not generated auto
@@ -371,8 +377,7 @@ private:
     int nOps = node.input().size();
 
     if (nOps == 2)
-      ImportNode<mlir::ONNXConvNoBiasOp>(
-          node, nOps, nOut);
+      ImportNode<mlir::ONNXConvNoBiasOp>(node, nOps, nOut);
     else
       ImportNode<mlir::ONNXConvOp>(node, nOps, nOut);
   }
@@ -380,15 +385,12 @@ private:
   /*!
    * Special handle for MaxPool operations.
    */
-  void ImportNodeMaxPool(
-      onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodeMaxPool(onnx::NodeProto node, int nIn, int nOut) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      ImportNode<mlir::ONNXMaxPoolSingleOutOp>(
-          node, nIn, nOuts);
+      ImportNode<mlir::ONNXMaxPoolSingleOutOp>(node, nIn, nOuts);
     } else {
-        ImportNode<mlir::ONNXMaxPoolOp>(
-                node, nIn, nOuts);
+      ImportNode<mlir::ONNXMaxPoolOp>(node, nIn, nOuts);
     }
   }
 
