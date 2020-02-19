@@ -526,15 +526,15 @@ private:
     auto funcType = builder_.getFunctionType(arg_types, {});
     auto mainFunc =
         mlir::FuncOp::create(UnknownLoc(), name, funcType, /* attrs = */ {});
-    // auto entryPoint = mlir::ONNXEntryPointOp::create(
-    //     UnknownLoc(), mainFunc, /*numInputs=*/graph.input().size(),
-    //     /*numOutputs=*/graph.output().size());
+    auto entryPoint = mlir::ONNXEntryPointOp::create(
+        UnknownLoc(), mainFunc, /*numInputs=*/graph.input().size(),
+        /*numOutputs=*/graph.output().size());
 
     auto &entryBlock = *mainFunc.addEntryBlock();
     builder_.setInsertionPointToStart(&entryBlock);
 
     module_.push_back(mainFunc);
-    // module_.push_back(entryPoint);
+    module_.push_back(entryPoint);
 
     for (auto it : llvm::zip(graph.input(), entryBlock.getArguments())) {
       ImportInputTensorSymbol(std::get<0>(it), std::get<1>(it));
