@@ -272,7 +272,7 @@ public:
     auto outputMemRefs = rewriter.create<LLVM::CallOp>(
         loc, staticEntryPointTy.getFunctionResultType(),
         rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
-                                  staticInputs);
+        staticInputs);
 
     // Create wrapped output.
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
