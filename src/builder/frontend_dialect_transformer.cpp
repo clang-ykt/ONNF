@@ -317,52 +317,10 @@ private:
     }
   }
 
-  // if c++17 is used, ImportNodeOneOut and ImportNodeMultipleOuts can be
-  // combined with 'if constexpr' the issue is the type of the output is
-  // different. alternative way to use variadic output for all the op
-
-  /*!
-   * Important onnx node which generates only one output
-   * @param node onnx node
-   * @param nIn number of expected inputs
-   * @param nOut number of expected outputs
-   * @param attrs  list of desription for attributes with format {name, type,
-   * default}
-   */
   template <typename T>
-  void ImportNodeOneOut(const onnx::NodeProto &node, int nIn, int nOut,
-                        bool variadicIn = false, bool variadicOut = false) {
-    std::vector<mlir::Value> inputs;
-    for (const auto &item : node.input()) {
-      if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-      }
-    }
-
-    std::vector<mlir::Type> outputTypes;
-    for (auto item : node.output()) {
-      outputTypes.push_back(
-          mlir::UnrankedTensorType::get(builder_.getF32Type()));
-    }
-
-    auto attributes = ImportNodeAttributes(node);
-
-    llvm::StringRef OpName = node.op_type();
-    if ((variadicIn || nIn == inputs.size()) &&
-        (variadicOut || nOut == outputTypes.size())) {
-      auto op =
-          builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
-      frontend_symbols_.AddMapping(legalize_name(node.output()[0]),
-                                   op.getResult());
-    } else {
-      ImportNodeGeneric(node);
-    }
-  }
-
-  template <typename T>
-  void ImportNodeMultipleOuts(const onnx::NodeProto &node, int nIn, int nOut,
-                              bool variadicIn = false,
-                              bool variadicOut = false) {
+  void ImportNode(const onnx::NodeProto &node, int nIn, int nOut,
+                  bool variadicIn = false,
+                  bool variadicOut = false) {
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
@@ -386,7 +344,7 @@ private:
           builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
       for (int i = 0; i < node.output().size(); i++) {
         frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
-                                     op.getResult(i));
+                                     *op.getODSResults(i).begin());
       }
     } else {
       ImportNodeGeneric(node);
@@ -413,10 +371,10 @@ private:
     int nOps = node.input().size();
 
     if (nOps == 2)
-      ImportNodeOneOut<mlir::ONNXConvNoBiasOp>(
+      ImportNode<mlir::ONNXConvNoBiasOp>(
           node, nOps, nOut);
     else
-      ImportNodeOneOut<mlir::ONNXConvOp>(node, nOps, nOut);
+      ImportNode<mlir::ONNXConvOp>(node, nOps, nOut);
   }
 
   /*!
@@ -426,11 +384,11 @@ private:
       onnx::NodeProto node, int nIn, int nOut) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      ImportNodeOneOut<mlir::ONNXMaxPoolSingleOutOp>(
+      ImportNode<mlir::ONNXMaxPoolSingleOutOp>(
           node, nIn, nOuts);
     } else {
-      ImportNodeMultipleOuts<mlir::ONNXMaxPoolOp>(
-          node, nIn, nOuts);
+        ImportNode<mlir::ONNXMaxPoolOp>(
+                node, nIn, nOuts);
     }
   }
 
@@ -440,9 +398,9 @@ private:
   void ImportNodeGemm(onnx::NodeProto node, int nIn, int nOut) {
     int nOps = node.input().size();
     if (nOps == 2) {
-      ImportNodeOneOut<mlir::ONNXGemmNoBiasOp>(node, 2, nOut);
+      ImportNode<mlir::ONNXGemmNoBiasOp>(node, 2, nOut);
     } else {
-      ImportNodeOneOut<mlir::ONNXGemmOp>(node, nIn, nOut);
+      ImportNode<mlir::ONNXGemmOp>(node, nIn, nOut);
     }
   }
 
@@ -452,9 +410,9 @@ private:
   void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
     int nOps = node.input().size();
     if (nOps == 2) {
-      ImportNodeOneOut<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
+      ImportNode<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
     } else {
-      ImportNodeOneOut<mlir::ONNXPadOp>(node, nIn, nOut);
+      ImportNode<mlir::ONNXPadOp>(node, nIn, nOut);
     }
   }
 

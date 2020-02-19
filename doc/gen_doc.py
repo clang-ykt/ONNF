@@ -415,18 +415,14 @@ def gen_code(schema,fefile) :
     handle_variadic = False
 
     line_indent = '  '
-    fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
+    fefile.write('    '+'} else if (OpName == "'+schema.name+'") {\n')
     op_type_str='mlir::ONNX'+schema.name+'Op'
     if schema.name in special_op_handler :
         fefile.write('       '+special_op_handler[schema.name]+'(node, '
           +str(len(schema.inputs))
           +', ' +str(len(schema.outputs)))
-    elif len(schema.outputs) > 1 :
-        fefile.write('       '+'ImportNodeMultipleOuts<'+op_type_str+'>(node, '
-          +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs)))
     else :
-        fefile.write('       '+'ImportNodeOneOut<'+op_type_str+'>(node, '
+        fefile.write('       '+'ImportNode<'+op_type_str+'>(node, '
           +str(len(schema.inputs))
           +', ' +str(len(schema.outputs)))
 
@@ -692,13 +688,10 @@ def main(args):  # type: (Type[Args]) -> None
 
 
 if __name__ == '__main__':
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-    docs_dir = os.path.join(base_dir, 'docs')
-    print(docs_dir)
+    base_dir = os.path.dirname(os.path.realpath(__file__))
 
     class Args(object):
-        output = os.path.join(docs_dir, 'Operators' + ext)
-        changelog = os.path.join(docs_dir, 'Changelog' + ext)
+        output = os.path.join(base_dir, 'Operators' + ext)
+        changelog = os.path.join(base_dir, 'Changelog' + ext)
         tdfile = os.path.join(base_dir, 'onnxop.inc')
-    print(Args)
     main(Args)
