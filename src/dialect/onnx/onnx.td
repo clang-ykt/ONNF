@@ -111,6 +111,7 @@ def ONNXGemmNoBiasOp: ONNX_Op<"GemmNoBias",
 
 def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Conv operation with no Bias operand.";
   let description = [{
     "The convolution operator consumes an input tensor and a filter, and"
@@ -154,5 +155,62 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
   }];
 
 }
+
+def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX BatchNormalization operation in test mode";
+  let description = [{
+    "Carries out batch normalization as described in the paper"
+    "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
+    "there are multiple cases for the number of outputs, which we list below:"
+    ""
+    "Output case #1: Y, mean, var, saved_mean, saved_var (training mode)"
+    "Output case #2: Y (test mode)"
+    ""
+    "For previous (depreciated) non-spatial cases, implementors are suggested"
+    "to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
+    "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
+  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$var,
+           DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
+           DefaultValuedAttr<F32Attr, "0.9">:$momentum);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+}
+
+def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
+    [NoSideEffect ]> {
+  let summary = "ONNX Pad operation with constant padding value";
+  let hasCanonicalizer = 1;
+  let description = [{ "this operation is introduced to handle situation"
+    " in which the padding value is a constant.
+    " The value will become an attribute."
+    "This operation is also used to handle the optional value input is missing and the default value 0."
+    "is used."
+   }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$pads,
+           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
+           DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+}
+
+def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstatValuePad",
+    [NoSideEffect ]> {
+  let summary = "ONNX Pad operation with constant padding value";
+  let description = [{ "this operation is introduced to handle situation"
+    " in which the padding value and padding are constants"
+    "They will become attributes."
+   }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           I64ArrayAttr:$pads,
+           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
+           DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+}
+
 
 #endif // ONNX_OPS

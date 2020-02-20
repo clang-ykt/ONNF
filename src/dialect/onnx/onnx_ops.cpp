@@ -25,6 +25,54 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 
 //===----------------------------------------------------------------------===//
+// Get reduction type
+//===----------------------------------------------------------------------===//
+RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+                                        Optional<ArrayAttr> axesAttrs,
+                                        APInt keepdims) {
+  int64_t rank = operandTy.getRank();
+
+  SmallVector<int64_t, 4> axes;
+  if (axesAttrs != llvm::None) {
+    for (auto axisAttr : axesAttrs.getValue()) {
+      int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+      axis = axis >= 0 ? axis : (rank + axis);
+      assert(axis >= -rank && axis <= rank - 1);
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+    }
+  } else {
+    for (decltype(rank) i = 0; i < rank; ++i) {
+      axes.emplace_back(i);
+    }
+  }
+
+  // Mark reduction axes.
+  SmallVector<bool, 4> isReductionAxis;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) != axes.end())
+      isReductionAxis.emplace_back(true);
+    else
+      isReductionAxis.emplace_back(false);
+  }
+
+  // KeepDims
+  bool isKeepdims = (keepdims == 1) ? true : false;
+
+  SmallVector<int64_t, 4> dims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (isReductionAxis[i]) {
+      if (isKeepdims)
+        dims.emplace_back(1); // reduction dimension
+    } else {
+      dims.emplace_back(operandTy.getShape()[i]);
+    }
+  }
+
+  return RankedTensorType::get(dims, operandTy.getElementType());
+}
+
+//===----------------------------------------------------------------------===//
 // ONNXOpsDialect
 //===----------------------------------------------------------------------===//
 
@@ -414,7 +462,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[0] != rhsShape[rhsRank - 2])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < rhsRank - 2; ++i)
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
   } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
@@ -432,7 +480,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[lhsRank - 1] != rhsShape[0])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < lhsRank - 2; ++i)
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(lhsShape[lhsRank - 2]);
   } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
@@ -446,7 +494,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[lhsRank - 1] != rhsShape[0])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < lhsRank - 1; ++i)
+    for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(rhsShape[1]);
   } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
@@ -460,7 +508,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[1] != rhsShape[rhsRank - 2])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < rhsRank - 2; ++i)
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(lhsShape[0]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
@@ -478,10 +526,10 @@ void ONNXMatMulOp::inferShapes() {
 
     // Check and perform broadcasting for the shapes.
     SmallVector<int64_t, 2> lhsBcastShape;
-    for (int i = 0; i < lhsRank - 2; ++i)
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
       lhsBcastShape.emplace_back(lhsShape[i]);
     SmallVector<int64_t, 2> rhsBcastShape;
-    for (int i = 0; i < rhsRank - 2; ++i)
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       rhsBcastShape.emplace_back(rhsShape[i]);
     if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
       emitError("Broadcasted dimensions are incompatible.");
@@ -558,10 +606,70 @@ void ONNXGemmNoBiasOp::inferShapes() {
     return;
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+
+  int64_t M, N, K_A, K_B;
+  M = (transA() == 0) ? lhsTy.getShape()[0] : lhsTy.getShape()[1];
+  K_A = (transA() == 0) ? lhsTy.getShape()[1] : lhsTy.getShape()[0];
+  N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
+  K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
+
+  if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
+    emitError("Tensor shapes mismatched.");
+  }
+
   SmallVector<int64_t, 2> dims;
-  dims.emplace_back(lhsTy.getShape()[0]);
-  dims.emplace_back(rhsTy.getShape()[1]);
+  dims.emplace_back(M);
+  dims.emplace_back(N);
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+}
+
+/// BatchNormalizationTestMode
+void ONNXBatchNormalizationTestModeOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>() ||
+      !getOperand(2).getType().isa<RankedTensorType>() ||
+      !getOperand(3).getType().isa<RankedTensorType>() ||
+      !getOperand(4).getType().isa<RankedTensorType>())
+    return;
+
+  auto input = getOperand(0).getType().cast<RankedTensorType>();
+  auto scale = getOperand(1).getType().cast<RankedTensorType>();
+  auto bias = getOperand(2).getType().cast<RankedTensorType>();
+  auto mean = getOperand(3).getType().cast<RankedTensorType>();
+  auto variance = getOperand(4).getType().cast<RankedTensorType>();
+
+  // Check whether the shapes of scale, bias, mean and variance are valid.
+  // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
+  // In case of N, C is assumed to be 1.
+  // Shapes of scale, bias, mean and variance must be C.
+  int64_t c = -1;
+  if (input.getShape().size() == 1) {
+    c = 1;
+  } else if (input.getShape().size() > 2) {
+    c = (input.getShape()[1] != -1) ? input.getShape()[1] : -1;
+  } else {
+    emitError("Wrong rank for the input.");
+  }
+
+  if (c != -1) {
+    auto s = scale.getShape();
+    auto b = bias.getShape();
+    auto m = mean.getShape();
+    auto v = variance.getShape();
+
+    if ((s.size() != 1) || (s[0] != -1 && s[0] != c))
+      emitError("Wrong rank for the scale.");
+    if ((b.size() != 1) || (b[0] != -1 && b[0] != c))
+      emitError("Wrong rank for the bias.");
+    if ((m.size() != 1) || (m[0] != -1 && m[0] != c))
+      emitError("Wrong rank for the mean.");
+    if ((v.size() != 1) || (v[0] != -1 && v[0] != c))
+      emitError("Wrong rank for the variance.");
+  }
+
+  // The output tensor of the same shape as the input.
+  getResult().setType(getOperand(0).getType());
 }
 
 // TODO:
@@ -628,6 +736,60 @@ void ONNXTransposeOp::inferShapes() {
 
 //===----------------------------------------------------------------------===//
 
+// ReduceMax
+
+void ONNXReduceMaxOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
+
+//===----------------------------------------------------------------------===//
+
+// ReduceMin
+
+void ONNXReduceMinOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
+
+//===----------------------------------------------------------------------===//
+
+// ReduceProd
+
+void ONNXReduceProdOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
+
+//===----------------------------------------------------------------------===//
+
+// ReduceSum
+
+void ONNXReduceSumOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
+
 // Conv
 
 // For this operation, we define the attributes once in the original Conv
@@ -647,6 +809,10 @@ void ONNXConvNoBiasOp::inferShapes() {
   auto weightTy = getOperand(1).getType().cast<RankedTensorType>();
   auto dataShape = dataTy.getShape();
   auto weightShape = weightTy.getShape();
+
+  // Lowest supported convolution is a one dimensional convolution.
+  if (dataShape.size() < 3)
+    emitError("Data input shape must be at least (NxCxD1).");
 
   // Check that shape of weight and data have same length.
   if (dataShape.size() != weightShape.size())

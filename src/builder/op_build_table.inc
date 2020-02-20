@@ -30,7 +30,7 @@
     }else if (OpName == "AveragePool") {
        ImportNodeOneOut<mlir::ONNXAveragePoolOp>(node, 1, 1);
     }else if (OpName == "BatchNormalization") {
-       ImportNodeMultipleOuts<mlir::ONNXBatchNormalizationOp>(node, 5, 5);
+       ImportNodeBatchNormalization(node, 5, 5);
     }else if (OpName == "BitShift") {
        ImportNodeOneOut<mlir::ONNXBitShiftOp>(node, 2, 1);
     }else if (OpName == "Cast") {
@@ -98,7 +98,7 @@
     }else if (OpName == "GatherND") {
        ImportNodeOneOut<mlir::ONNXGatherNDOp>(node, 2, 1);
     }else if (OpName == "Gemm") {
-       ImportNodeOneOut<mlir::ONNXGemmOp>(node, 3, 1);
+       ImportNodeGemm(node, 3, 1);
     }else if (OpName == "GlobalAveragePool") {
        ImportNodeOneOut<mlir::ONNXGlobalAveragePoolOp>(node, 1, 1);
     }else if (OpName == "GlobalLpPool") {
@@ -178,7 +178,7 @@
     }else if (OpName == "PRelu") {
        ImportNodeOneOut<mlir::ONNXPReluOp>(node, 2, 1);
     }else if (OpName == "Pad") {
-       ImportNodeOneOut<mlir::ONNXPadOp>(node, 3, 1);
+       ImportNodePad(node, 3, 1);
     }else if (OpName == "Pow") {
        ImportNodeOneOut<mlir::ONNXPowOp>(node, 2, 1);
     }else if (OpName == "QLinearConv") {

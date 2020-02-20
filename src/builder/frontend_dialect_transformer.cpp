@@ -434,6 +434,45 @@ private:
     }
   }
 
+  /*!
+   * Special handle for BatchNormalization operations.
+   */
+  void ImportNodeBatchNormalization(onnx::NodeProto node, int nIn, int nOut) {
+    int nOuts = node.output().size();
+    if (nOuts == 1) {
+      // Test mode with one output.
+      ImportNodeOneOut<mlir::ONNXBatchNormalizationTestModeOp>(node, nIn,
+                                                               nOuts);
+    } else {
+      // Training mode with four trailing optional outputs. Not handled yet.
+      ImportNodeMultipleOuts<mlir::ONNXBatchNormalizationOp>(node, nIn, nOuts);
+    }
+  }
+
+  /*!
+   * Special handle for Gemm operations.
+   */
+  void ImportNodeGemm(onnx::NodeProto node, int nIn, int nOut) {
+    int nOps = node.input().size();
+    if (nOps == 2) {
+      ImportNodeOneOut<mlir::ONNXGemmNoBiasOp>(node, 2, nOut);
+    } else {
+      ImportNodeOneOut<mlir::ONNXGemmOp>(node, nIn, nOut);
+    }
+  }
+
+  /*!
+   * Special handle for Pad operations.
+   */
+  void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
+    int nOps = node.input().size();
+    if (nOps == 2) {
+      ImportNodeOneOut<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
+    } else {
+      ImportNodeOneOut<mlir::ONNXPadOp>(node, nIn, nOut);
+    }
+  }
+
   void ImportNode(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {

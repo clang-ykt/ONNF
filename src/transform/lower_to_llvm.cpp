@@ -41,6 +41,23 @@ static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
   return SymbolRefAttr::get(funcName, context);
 }
 
+static size_t getRankFromMemRefType(LLVM::LLVMType memRefTy) {
+  // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
+  // this struct are arrays whose size is the rank of the tensor. In the event
+  // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
+  // elements will have 0-length, which in turn causes the MemRef struct to
+  // degenerate into a 3-element struct. For more information, refer to
+  // https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
+  auto numElems = memRefTy.getStructNumElements();
+  assert((numElems == 3 || numElems == 5) &&
+         "Expect MemRef type to contain either 3 or 5 elements.");
+
+  if (numElems == 3)
+    return 0; // MemRef refers to a scalar.
+  else
+    return memRefTy.getStructElementType(3).getArrayNumElements();
+}
+
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlMemcpyOpLowering
 //===----------------------------------------------------------------------===//
@@ -91,9 +108,8 @@ public:
     // Memcpy call
     rewriter.create<CallOp>(
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
-        ArrayRef<Value>(
-            {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
-             isVolatile}));
+        ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
+                         int64Size, isVolatile}));
 
     rewriter.eraseOp(op);
     return matchSuccess();
@@ -116,7 +132,8 @@ private:
     auto llvmI1Ty = LLVM::LLVMType::getInt1Ty(llvmDialect);
     auto llvmFnType = LLVM::LLVMType::getFunctionTy(
         llvmVoidTy,
-        ArrayRef<mlir::LLVM::LLVMType>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
+        ArrayRef<mlir::LLVM::LLVMType>(
+            {llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
         false);
 
     // Insert the memcpy function into the body of the parent module.
@@ -207,7 +224,10 @@ public:
 
     // Based on the static entry point type signature, unpack dynamic memory
     // refs to corresponding static memory refs.
-    auto *staticEntryPointFunc = module.lookupSymbol(staticEntryPointFuncName);
+    auto wrappedStaticEntryPointFuncName =
+        "_mlir_ciface_" + staticEntryPointFuncName.lower();
+    auto *staticEntryPointFunc =
+        module.lookupSymbol(wrappedStaticEntryPointFuncName);
     assert(staticEntryPointFunc &&
            isa<LLVM::LLVMFuncOp>(staticEntryPointFunc) &&
            "entry point func must exist and be an llvm func op");
@@ -251,7 +271,8 @@ public:
     // Call static entry point with the memref ptrs created, and get output.
     auto outputMemRefs = rewriter.create<LLVM::CallOp>(
         loc, staticEntryPointTy.getFunctionResultType(),
-        rewriter.getSymbolRefAttr(staticEntryPointFuncName), staticInputs);
+        rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
+        staticInputs);
 
     // Create wrapped output.
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
@@ -261,8 +282,7 @@ public:
     // it in the wrapped Output.
     auto outMemRef = outputMemRefs.getResult(0);
     auto outMemRefTy = outMemRef.getType().dyn_cast<LLVMType>();
-    auto outMemRefRank =
-        outMemRefTy.getStructElementType(3).getArrayNumElements();
+    auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
     auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
     auto outDynMemRef = callApi(rewriter, loc, apiRegistry,
@@ -376,7 +396,7 @@ private:
         rewriter.getArrayAttr({rewriter.getI32IntegerAttr(2)}));
 
     // Get rank, sizes array ptr and strides array ptr.
-    auto rank = memRefTy.getStructElementType(3).getArrayNumElements();
+    auto rank = getRankFromMemRefType(memRefTy);
     auto sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {dynMemRef});
     auto stridesArrayPtr =
@@ -428,7 +448,7 @@ private:
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
             {outDynMemRef, outMemRefDataPtr});
 
-    auto rank = outMemRefTy.getStructElementType(3).getArrayNumElements();
+    auto rank = getRankFromMemRefType(outMemRefTy);
     auto sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {outDynMemRef});
     auto stridesArrayPtr =
@@ -547,7 +567,9 @@ void KrnlToLLVMLoweringPass::runOnModule() {
   OwningRewritePatternList patterns;
   populateAffineToStdConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
-  populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns,
+                                      /*useAlloca=*/false,
+                                      /*emitCWrapper=*/true);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering,

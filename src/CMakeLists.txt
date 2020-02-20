@@ -39,8 +39,10 @@ add_dependencies(compiler gen_onnx_combine)
 set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
 onnf_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 onnf_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
+set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
 add_dependencies(compiler gen_onnx)
+add_onnf_dialect_doc(onnx dialect/onnx/onnx.td)
 
 set(LLVM_TARGET_DEFINITIONS dialect/krnl/krnl_ops.td)
 onnf_tablegen(krnl.hpp.inc -gen-op-decls)
@@ -55,7 +57,7 @@ target_include_directories(onnf_shape_inference
 target_link_libraries(onnf_shape_inference ${MLIRLibs})
 add_dependencies(onnf_shape_inference gen_krnl_ops)
 
-add_library(onnf_lower_frontend pass/lower_frontend_to_krnl.cpp)
+add_library(onnf_lower_frontend conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)
 target_include_directories(onnf_lower_frontend
         PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
         ${ONNF_SRC_ROOT})

@@ -98,8 +98,8 @@ test_to_enable = [
     "test_gemm_alpha_cpu",
     "test_gemm_beta_cpu",
     "test_gemm_default_matrix_bias_cpu",
-    # "test_gemm_default_no_bias_cpu", <- error, need support for optional operands
-    # "test_gemm_default_scalar_bias_cpu", <- error, shapes mismatch, why?
+    "test_gemm_default_no_bias_cpu",
+    "test_gemm_default_scalar_bias_cpu",
     "test_gemm_default_single_elem_vector_bias_cpu",
     "test_gemm_default_vector_bias_cpu",
     "test_gemm_default_zero_bias_cpu",
@@ -133,6 +133,93 @@ test_to_enable = [
 
     # Relu Op:
     "test_relu_cpu",
+
+    # ReduceMax Op:
+    "test_reduce_max_default_axes_keepdim_example_cpu",
+    "test_reduce_max_default_axes_keepdims_random_cpu",
+    "test_reduce_max_do_not_keepdims_example_cpu",
+    "test_reduce_max_do_not_keepdims_random_cpu",
+    "test_reduce_max_keepdims_example_cpu",
+    "test_reduce_max_keepdims_random_cpu",
+    "test_reduce_max_negative_axes_keepdims_example_cpu",
+    "test_reduce_max_negative_axes_keepdims_random_cpu",
+
+    # ReduceMin Op:
+    "test_reduce_min_default_axes_keepdims_example_cpu",
+    "test_reduce_min_default_axes_keepdims_random_cpu",
+    "test_reduce_min_do_not_keepdims_example_cpu",
+    "test_reduce_min_do_not_keepdims_random_cpu",
+    "test_reduce_min_keepdims_example_cpu",
+    "test_reduce_min_keepdims_random_cpu",
+    "test_reduce_min_negative_axes_keepdims_example_cpu",
+    "test_reduce_min_negative_axes_keepdims_random_cpu",
+
+    # ReduceProd Op:
+    "test_reduce_prod_default_axes_keepdims_example_cpu",
+    "test_reduce_prod_default_axes_keepdims_random_cpu",
+    "test_reduce_prod_do_not_keepdims_example_cpu",
+    "test_reduce_prod_do_not_keepdims_random_cpu",
+    "test_reduce_prod_keepdims_example_cpu",
+    "test_reduce_prod_keepdims_random_cpu",
+    "test_reduce_prod_negative_axes_keepdims_example_cpu",
+    "test_reduce_prod_negative_axes_keepdims_random_cpu",
+
+    # ReduceSum Op:
+    "test_reduce_sum_default_axes_keepdims_example_cpu",
+    "test_reduce_sum_default_axes_keepdims_random_cpu",
+    "test_reduce_sum_do_not_keepdims_example_cpu",
+    "test_reduce_sum_do_not_keepdims_random_cpu",
+    "test_reduce_sum_keepdims_example_cpu",
+    "test_reduce_sum_keepdims_random_cpu",
+    "test_reduce_sum_negative_axes_keepdims_example_cpu",
+    "test_reduce_sum_negative_axes_keepdims_random_cpu",
+
+    # ReduceL1: this op depends on ONNXAbsOp so we will turn these tests on once ONNXAbsOp is implemented.
+    #"test_reduce_l1_default_axes_keepdims_example_cpu",
+    #"test_reduce_l1_default_axes_keepdims_random_cpu",
+    #"test_reduce_l1_do_not_keepdims_example_cpu",
+    #"test_reduce_l1_do_not_keepdims_random_cpu",
+    #"test_reduce_l1_keep_dims_example_cpu",
+    #"test_reduce_l1_keep_dims_random_cpu",
+    #"test_reduce_l1_negative_axes_keep_dims_example_cpu",
+    #"test_reduce_l1_negative_axes_keep_dims_random_cpu",
+
+    # ReduceL2
+    "test_reduce_l2_default_axes_keepdims_example_cpu",
+    "test_reduce_l2_default_axes_keepdims_random_cpu",
+    "test_reduce_l2_do_not_keepdims_example_cpu",
+    "test_reduce_l2_do_not_keepdims_random_cpu",
+    "test_reduce_l2_keep_dims_example_cpu",
+    "test_reduce_l2_keep_dims_random_cpu",
+    "test_reduce_l2_negative_axes_keep_dims_example_cpu",
+    "test_reduce_l2_negative_axes_keep_dims_random_cpu",
+
+    # ReduceLogSum
+    "test_reduce_log_sum_asc_axes_cpu",
+    "test_reduce_log_sum_cpu",
+    "test_reduce_log_sum_default_cpu",
+    "test_reduce_log_sum_desc_axes_cpu",
+
+    # ReduceLogSumExp
+    "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu",
+    "test_reduce_log_sum_exp_do_not_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_do_not_keepdims_random_cpu",
+    "test_reduce_log_sum_exp_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_keepdims_random_cpu",
+    "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu",
+    "test_reduce_log_sum_negative_axes_cpu",
+
+    # ReduceSumSquare
+    "test_reduce_sum_square_default_axes_keepdims_example_cpu",
+    "test_reduce_sum_square_default_axes_keepdims_random_cpu",
+    "test_reduce_sum_square_do_not_keepdims_example_cpu",
+    "test_reduce_sum_square_do_not_keepdims_random_cpu",
+    "test_reduce_sum_square_keepdims_example_cpu",
+    "test_reduce_sum_square_keepdims_random_cpu",
+    "test_reduce_sum_square_negative_axes_keepdims_example_cpu",
+    "test_reduce_sum_square_negative_axes_keepdims_random_cpu",
 
     # Selu Op:
     "test_selu_cpu",
@@ -184,13 +271,13 @@ test_to_enable = [
 
     # ReshapeOp:
     "test_reshape_extended_dims_cpu",
-    #"test_reshape_negative_dim_cpu", <- handle nagative dim
-    #"test_reshape_negative_extended_dims_cpu", <- handle nagative dim
+    "test_reshape_negative_dim_cpu",
+    "test_reshape_negative_extended_dims_cpu",
     "test_reshape_one_dim_cpu",
     "test_reshape_reduced_dims_cpu",
     "test_reshape_reordered_all_dims_cpu",
     "test_reshape_reordered_last_dims_cpu",
-    #"test_reshape_zero_and_negative_dim_cpu", <- handle nagative dim
+    "test_reshape_zero_and_negative_dim_cpu",
     "test_reshape_zero_dim_cpu",
 
     # Transpose
@@ -202,8 +289,22 @@ test_to_enable = [
     "test_transpose_all_permutations_4_cpu",
     "test_transpose_all_permutations_5_cpu",
 
+    # Conv
+    "test_basic_conv_without_padding_cpu",
+    "test_conv_with_strides_no_padding_cpu",
+
     # Sign Op:
     "test_sign_cpu",
+
+    # MatmulOp
+    "test_matmul_2d_cpu",
+    "test_matmul_3d_cpu",
+    "test_matmul_4d_cpu",
+
+    # BatchNormalization (test mode)
+    "test_batchnorm_epsilon_cpu",
+    "test_batchnorm_example_cpu",
+
 ]
 
 # Extract name of all test cases.

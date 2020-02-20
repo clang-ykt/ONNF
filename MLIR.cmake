@@ -58,9 +58,11 @@ find_mlir_lib(MLIRAffineOps)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAnalysis)
 find_mlir_lib(MLIRDialect)
+find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
+find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRLoopToStandard)
 find_mlir_lib(MLIRLoopOps)
 find_mlir_lib(MLIRParser)
@@ -71,7 +73,8 @@ find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
-find_mlir_lib(MLIROptMain)
+find_mlir_lib(MLIRMlirOptMain)
+find_mlir_lib(MLIROptLib)
 find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
@@ -117,12 +120,15 @@ set(MLIRLibsOnce
         ${MLIRAffineToStandard}
         ${MLIRAnalysis}
         ${MLIRDialect}
+        ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
         ${MLIRLLVMIR}
         ${MLIRLoopToStandard}
         ${MLIRLoopOps}
-        ${MLIROptMain}
+        ${MLIRLoopAnalysis}
+        ${MLIRMlirOptMain}
+        ${MLIROptLib}
         ${MLIRParser}
         ${MLIRPass}
         ${MLIRStandardOps}
@@ -207,3 +213,23 @@ add_executable(mlir-tblgen IMPORTED)
 set_property(TARGET mlir-tblgen
         PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BUILD}/bin/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
+
+# Add a dialect used by ONNF and copy the generated operation
+# documentation to the desired places.
+# c.f. https://github.com/llvm/llvm-project/blob/e298e216501abf38b44e690d2b28fc788ffc96cf/mlir/CMakeLists.txt#L11
+function(add_onnf_dialect_doc dialect dialect_tablegen_file)
+  # Generate Dialect Documentation
+  set(LLVM_TARGET_DEFINITIONS ${dialect_tablegen_file})
+  onnf_tablegen(${dialect}.md -gen-op-doc)
+  set(GEN_DOC_FILE ${ONNF_BIN_ROOT}/doc/Dialects/${dialect}.md)
+  add_custom_command(
+          OUTPUT ${GEN_DOC_FILE}
+          COMMAND ${CMAKE_COMMAND} -E copy
+          ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md
+          ${GEN_DOC_FILE}
+          DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md)
+  add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
+  add_dependencies(onnf-doc ${dialect}DocGen)
+endfunction()
+
+add_custom_target(onnf-doc)
