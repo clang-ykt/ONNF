@@ -124,6 +124,7 @@ void printBound(AffineMapAttr boundMap,
 }  // namespace onnf
 
 namespace mlir {
+
 void KrnlIterateOperandPack::pushConstantBound(int64_t bound) {
   if (boundMaps.size() % 2 == 0)
     _operands.emplace_back(inputLoops[boundMaps.size() / 2]);
@@ -141,9 +142,10 @@ void KrnlIterateOperandPack::pushOperandBound(mlir::Value operand) {
 
 
 // insert define and opt at current location
-BuildKrnlLoop::BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int originalLoopNum)
-  : rewriter(rewriter), loc(loc), originalLoopNum(originalLoopNum), pushCount(0),
-  createdIterOp(false) {
+BuildKrnlLoop::BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc)
+  : rewriter(rewriter), loc(loc), originalLoopNum(-1), pack(NULL), 
+  pushCount(0), createdOptimizeOp(false), createdIterOp(false) {
+    /*
     // Define loops.
     auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
     originalLoops.reserve(originalLoopNum);
@@ -159,47 +161,44 @@ BuildKrnlLoop::BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, 
   // prepare data structure to push bounds
   pack = new KrnlIterateOperandPack(rewriter, originalLoops, 
     optimizedLoops);
+    */
 }
 
-/*
-BuildKrnlLoop::BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, 
-  Value memRefOperand, bool withEmptyOptimization)
-  : BuildKrnlLoop(rewriter, loc, 
-    memRefOperandget.Type().cast<MemRefType>().getShape().size()) {
-    for (int i=0; i<originalLoopNum; ++i)
-      pushBounds(0, memRefOperand, i);
-    createIterateOp(withEmptyOptimization);
-  }
-*/
-
 BuildKrnlLoop::~BuildKrnlLoop() {
+  if (!createdOptimizeOp) 
+    emitError(loc, "expected to create optimize op");
   if (!createdIterOp) 
     emitError(loc, "expected to create iteration op");
-  free(pack);
+  if (pack) free(pack);
 } 
 
-void BuildKrnlLoop::createDefineOptimizeOp(bool withEmptyOptimization) {
-  // Define loops.
+void BuildKrnlLoop::createOptimizeOp(int loopNum, bool withEmptyOptimization) {
+  originalLoopNum = loopNum;
+  if (originalLoopNum<=0)
+    emitError(loc, "expected positive number of original loops");
+  // insert define loop op
     auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
     originalLoops.reserve(originalLoopNum);
     for (auto result : loopsOp.getResults())
       originalLoops.push_back(result);
-    // Define optimized version of the loops.
+    // inserte optimize loop op.
     auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, originalLoopNum);
-    optimizedLoops.reserve(originalLoopNum);
-    for (auto result : optimizedLoopsOp.getResults())
-      optimizedLoops.push_back(result);
-    optBlock = &optimizedLoopsOp.region().front();
-    if (withEmptyOptimization) {
+    optLoops.reserve(originalLoopNum);
       // Emit empty optimizations
-      auto 
+
+    if (withEmptyOptimization) {
+        for (auto result : optimizedLoopsOp.getResults())
+      optLoops.push_back(result);
+      optBlock = &optimizedLoopsOp.region().front();
+      auto ip = rewriter.saveInsertionPoint();
       insertInOptimizeLoopEnd();
       rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+      rewriter.restoreInsertionPoint(ip);
     }
-
   // prepare data structure to push bounds
   pack = new KrnlIterateOperandPack(rewriter, originalLoops, 
-    optimizedLoops);
+    optLoops);
+  createdOptimizeOp = true;
 }
 
 // push bounds (lower and upper) and return index for loop info
@@ -237,8 +236,10 @@ int BuildKrnlLoop::pushBounds(Value lb, Value ub) {
 }
 
 // create iter
-void BuildKrnlLoop::createIterateOp(bool withEmptyOptimization)
+void BuildKrnlLoop::createIterateOp()
 {
+  if (!createdOptimizeOp) 
+    emitError(loc, "must create optimize op before iterate op");
   // have to have defined all bounds 
   if (pushCount != originalLoopNum) {
     printf(" push count %d, original loop %d\n", pushCount, originalLoopNum);
@@ -247,18 +248,20 @@ void BuildKrnlLoop::createIterateOp(bool withEmptyOptimization)
   // create iterate op
   auto iterateOp = rewriter.create<KrnlIterateOp>(loc, *pack);
     iterBlock = &iterateOp.bodyRegion().front();
-    if (withEmptyOptimization) {
-      // Emit empty optimizations
-      auto insertionPoint = rewriter.saveInsertionPoint();
-      insertInOptimizeLoopEnd();
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-      rewriter.restoreInsertionPoint(insertionPoint);
-    }
     createdIterOp = true;
 }
 
+void BuildKrnlLoop::createOptimizeAndIterateOp(Value memRefOperand, 
+  bool withEmptyOptimization) {
+  int loopNum = memRefOperand.getType().cast<MemRefType>().getShape().size();
+  createOptimizeOp(loopNum, withEmptyOptimization);
+    for (int i=0; i<originalLoopNum; ++i)
+      pushBounds(0, memRefOperand, i);
+    createIterateOp();
+}
+
 // get induction variable to be use within iter
-BlockArgument &BuildKrnlLoop::inductionVar(int originalLoopIndex) {
+BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
   if (originalLoopIndex<0 || originalLoopIndex>=originalLoopNum)
     emitError(loc, "original loop index is out of bound");
   return iterBlock->getArguments()[originalLoopIndex];

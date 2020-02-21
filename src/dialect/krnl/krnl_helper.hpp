@@ -103,29 +103,40 @@ struct KrnlIterateOperandPack {
 
   class BuildKrnlLoop {
   public:
-    // build kernel loop define and 
-    BuildKrnlLoop(ConversionPatternRewriter &rewriter, 
-      Location loc, int originalLoopNum);
+    BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc);
     ~BuildKrnlLoop();
 
-    void createDefineOptimizeOp(bool withEmptyOptimization);
+    // Create define and optimize loop with loopNum original loops. If withEmptyOptimization, the optimization is simply the identity function (no optimizations).
+    void createOptimizeOp(int loopNum, bool withEmptyOptimization=true);
 
-
+    // Push bounds (lb & up) for each of the loops, in order. It returns the index associated with the loop iteration.
     int pushBounds(int64_t lb, int64_t ub);
     int pushBounds(int64_t lb, Value ub);
     int pushBounds(int64_t lb, Value ubMemRefOperand, int ubMemRefIndex, bool ubMustBeConstant=false);
     int pushBounds(Value lb, Value ub);
 
-    void createIterateOp(bool withEmptyOptimization=true);
-    BlockArgument &inductionVar(int originalLoopIndex);
+    // create an iterate op
+    void createIterateOp();
+    // create an optimize and iterate op, with the same loop num, bounds as present in the memRefOperand.
+    void createOptimizeAndIterateOp(Value memRefOperand, 
+  bool withEmptyOptimization=true);
 
+    // get the (original loop) induction variable associated with the given index. Use the index returned when pushing the bounds.
+    BlockArgument &getInductionVar(int originalLoopIndex);
+
+    // decide where to insert subsequent code
     void insertInOptimizeLoopStart();
     void insertInOptimizeLoopEnd();
     void insertInIterateLoopStart();
     void insertInIterateLoopEnd();
 
-    Block *optimizationBlock() {return optBlock; }
-    Block *iterationBlock() { return iterBlock; }
+    // get blocks
+    Block *getOptimizationBlock() {return optBlock; }
+    Block *getIterationBlock() { return iterBlock; }
+
+    // get original or optimized loops
+    std::vector<Value> &getOriginalLoops() { return originalLoops; }
+    std::vector<Value> &getOptimizedLoops() { return optLoops; }
 
   private:
     // inputs
@@ -134,9 +145,10 @@ struct KrnlIterateOperandPack {
     int originalLoopNum;
     // track loops and bounds
     std::vector<Value> originalLoops;
-        std::vector<Value> optimizedLoops;
+        std::vector<Value> optLoops;
         KrnlIterateOperandPack *pack;
         int pushCount;
+        bool createdOptimizeOp;
         bool createdIterOp;
         // insertion points (opt block, iterate)
         Block *optBlock;
