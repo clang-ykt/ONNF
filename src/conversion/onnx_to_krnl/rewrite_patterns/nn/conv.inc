@@ -12,9 +12,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
   ONNXConvNoBiasOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvNoBiasOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -25,8 +24,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
-                                    {operands[0]});
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, {operands[0]});
 
     auto resultShape = memRefType.getShape();
     auto &inputOperand = operands[0];
@@ -93,11 +92,9 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
         loc, FloatAttr::get(memRefType.getElementType(), 0));
     Value subchannels;
     if (kernelShape[1] < 0) {
-      subchannels =
-          rewriter.create<DimOp>(loc, kernelOperand, 1).getResult();
+      subchannels = rewriter.create<DimOp>(loc, kernelOperand, 1).getResult();
     } else {
-      subchannels = rewriter.create<ConstantIndexOp>(
-          loc, kernelShape[1]);
+      subchannels = rewriter.create<ConstantIndexOp>(loc, kernelShape[1]);
     }
 
     // 1. Define outer loops and emit empty optimization block:
@@ -108,7 +105,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     int nIndex = outerLoops.pushBounds(0, inputOperand, 0);
     //   for g = 0 .. N:
     int gIndex = -1;
-    if (group > 1) gIndex = outerLoops.pushBounds(0, group);
+    if (group > 1)
+      gIndex = outerLoops.pushBounds(0, group);
     //   for m = 0 .. kernelsPerGroup:
     int mIndex = outerLoops.pushBounds(0, kernelsPerGroup);
     // Outer loop iteration
@@ -124,11 +122,10 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
       if (group > 1) {
         // Middle loop is over groups and third loop is over the
         // kernel identifiers in the current group.
-        auto kernelsOffset = rewriter.create<MulIOp>(loc,
-            outerLoops.getInductionVar(gIndex),
-            kernelsPerGroupValue);
-        kernel = rewriter.create<AddIOp>(loc, kernelsOffset,
-          outerLoops.getInductionVar(mIndex));
+        auto kernelsOffset = rewriter.create<MulIOp>(
+            loc, outerLoops.getInductionVar(gIndex), kernelsPerGroupValue);
+        kernel = rewriter.create<AddIOp>(
+            loc, kernelsOffset, outerLoops.getInductionVar(mIndex));
       }
 
       // 2.2 Define spatial loops
@@ -185,8 +182,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
           Value channelDepth = innerLoops.getInductionVar(cIndex);
           if (group > 1)
             channelDepth = rewriter.create<AddIOp>(loc, channelDepth,
-                rewriter.create<MulIOp>(loc, subchannels,
-                    outerLoops.getInductionVar(gIndex)));
+                rewriter.create<MulIOp>(
+                    loc, subchannels, outerLoops.getInductionVar(gIndex)));
           dataIndices.emplace_back(channelDepth);
           // sX * rX + kX
           auto stridesAttribute = convOp.stridesAttr();
@@ -202,9 +199,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
               spatialIndex = rewriter.create<MulIOp>(loc,
                   rewriter.create<ConstantIndexOp>(loc, strides[i]),
                   spatialLoops.getInductionVar(i));
-            dataIndices.emplace_back(
-                rewriter.create<AddIOp>(loc, spatialIndex,
-                    innerLoops.getInductionVar(i+1)));
+            dataIndices.emplace_back(rewriter.create<AddIOp>(
+                loc, spatialIndex, innerLoops.getInductionVar(i + 1)));
           }
 
           // 4.2 Prepare indices for accessing the kernel tensor.
@@ -215,8 +211,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
           kernelIndices.emplace_back(innerLoops.getInductionVar(cIndex));
           // kX
           for (int i = 0; i < kernelShape.size() - 2; ++i)
-            kernelIndices.emplace_back(
-                innerLoops.getInductionVar(i+1));
+            kernelIndices.emplace_back(innerLoops.getInductionVar(i + 1));
 
           // 4.3 Compute convolution.
           auto loadData =
