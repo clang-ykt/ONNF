@@ -172,7 +172,7 @@ void BuildKrnlLoop::createOptimizeOp(int loopNum, bool withEmptyOptimization) {
       optLoops.push_back(result);
     optBlock = &optimizedLoopsOp.region().front();
     auto ip = rewriter.saveInsertionPoint();
-    insertInOptimizeLoopEnd();
+    rewriter.setInsertionPointToEnd(optBlock);
     rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
     rewriter.restoreInsertionPoint(ip);
   }
@@ -182,37 +182,37 @@ void BuildKrnlLoop::createOptimizeOp(int loopNum, bool withEmptyOptimization) {
 }
 
 // push bounds (lower and upper) and return index for loop info
-int BuildKrnlLoop::pushBounds(int64_t lb, int64_t ub) {
-  pack->pushConstantBound(lb);
-  pack->pushConstantBound(ub);
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, int64_t upperBound) {
+  pack->pushConstantBound(lowerBound);
+  pack->pushConstantBound(upperBound);
   return pushCount++;
 }
 
-int BuildKrnlLoop::pushBounds(int64_t lb, Value ub) {
-  pack->pushConstantBound(lb);
-  pack->pushOperandBound(ub);
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
+  pack->pushConstantBound(lowerBound);
+  pack->pushOperandBound(upperBound);
   return pushCount++;
 }
 
-int BuildKrnlLoop::pushBounds(int64_t lb, Value ubMemRefOperand,
-    int ubMemRefIndex, bool ubMustBeConstant) {
-  pack->pushConstantBound(lb);
-  // process ub as a dimension of mem ref, possibly non-constant
-  auto shape = ubMemRefOperand.getType().cast<MemRefType>().getShape();
-  if (shape[ubMemRefIndex] < 0) {
-    if (ubMustBeConstant)
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
+    int upperBoundMemRefIndex, bool upperBoundMustBeConstant) {
+  pack->pushConstantBound(lowerBound);
+  // process upperBound as a dimension of mem ref, possibly non-constant
+  auto shape = upperBoundMemRefOperand.getType().cast<MemRefType>().getShape();
+  if (shape[upperBoundMemRefIndex] < 0) {
+    if (upperBoundMustBeConstant)
       emitError(loc, "bound expected to be constant");
     pack->pushOperandBound(
-        rewriter.create<DimOp>(loc, ubMemRefOperand, ubMemRefIndex)
+        rewriter.create<DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
             .getResult());
   } else
-    pack->pushConstantBound(shape[ubMemRefIndex]);
+    pack->pushConstantBound(shape[upperBoundMemRefIndex]);
   return pushCount++;
 }
 
-int BuildKrnlLoop::pushBounds(Value lb, Value ub) {
-  pack->pushOperandBound(lb);
-  pack->pushOperandBound(ub);
+int BuildKrnlLoop::pushBounds(Value lowerBound, Value upperBound) {
+  pack->pushOperandBound(lowerBound);
+  pack->pushOperandBound(upperBound);
   return pushCount++;
 }
 
@@ -247,6 +247,7 @@ BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
   return iterBlock->getArguments()[originalLoopIndex];
 }
 
+/*
 // set insertion points
 void BuildKrnlLoop::insertInOptimizeLoopStart() {
   rewriter.setInsertionPointToStart(optBlock);
@@ -263,5 +264,6 @@ void BuildKrnlLoop::insertInIterateLoopStart() {
 void BuildKrnlLoop::insertInIterateLoopEnd() {
   rewriter.setInsertionPointToEnd(iterBlock);
 }
+*/
 
 } // namespace mlir

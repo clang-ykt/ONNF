@@ -129,12 +129,6 @@ public:
   // Use the index returned when pushing the bounds.
   BlockArgument &getInductionVar(int originalLoopIndex);
 
-  // decide where to insert subsequent code
-  void insertInOptimizeLoopStart();
-  void insertInOptimizeLoopEnd();
-  void insertInIterateLoopStart();
-  void insertInIterateLoopEnd();
-
   // get blocks
   Block *getOptimizationBlock() { return optBlock; }
   Block *getIterationBlock() { return iterBlock; }
