@@ -8,6 +8,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/StandardTypes.h"
+#include "mlir/Transforms/DialectConversion.h"
 
 namespace onnf {
 
@@ -99,5 +100,48 @@ struct KrnlIterateOperandPack {
 
   mlir::Builder& builder;
 };
+
+  class BuildKrnlLoop {
+  public:
+    // build kernel loop define and 
+    BuildKrnlLoop(ConversionPatternRewriter &rewriter, 
+      Location loc, int originalLoopNum);
+    ~BuildKrnlLoop();
+
+    void createDefineOptimizeOp(bool withEmptyOptimization);
+
+
+    int pushBounds(int64_t lb, int64_t ub);
+    int pushBounds(int64_t lb, Value ub);
+    int pushBounds(int64_t lb, Value ubMemRefOperand, int ubMemRefIndex, bool ubMustBeConstant=false);
+    int pushBounds(Value lb, Value ub);
+
+    void createIterateOp(bool withEmptyOptimization=true);
+    BlockArgument &inductionVar(int originalLoopIndex);
+
+    void insertInOptimizeLoopStart();
+    void insertInOptimizeLoopEnd();
+    void insertInIterateLoopStart();
+    void insertInIterateLoopEnd();
+
+    Block *optimizationBlock() {return optBlock; }
+    Block *iterationBlock() { return iterBlock; }
+
+  private:
+    // inputs
+    ConversionPatternRewriter &rewriter;
+    Location loc;
+    int originalLoopNum;
+    // track loops and bounds
+    std::vector<Value> originalLoops;
+        std::vector<Value> optimizedLoops;
+        KrnlIterateOperandPack *pack;
+        int pushCount;
+        bool createdIterOp;
+        // insertion points (opt block, iterate)
+        Block *optBlock;
+    Block *iterBlock;
+
+  };
 
 }  // namespace mlir
