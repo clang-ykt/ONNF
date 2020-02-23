@@ -457,9 +457,9 @@ special cases:
 """
 
 def gen_code(schema, fefile):
-    indent = ' ' * 4
+    indent = inc_indent()
     s = ''
-    fefile.write(indent + '} else if (opName == "'+schema.name+'") {\n')
+    fefile.write(indent + 'if (opName == "'+schema.name+'")\n')
     op_type_str = 'mlir::ONNX{}Op'.format(schema.name)
 
     expected_num_operands = len(schema.inputs)
@@ -480,7 +480,7 @@ def gen_code(schema, fefile):
     if expected_num_operands == -1 or expected_num_results == -1 or "buildOperation" not in handler_func:
         args.append("/* expected_num_operands = */ {}".format(expected_num_operands))
         args.append('/* expected_num_results = */ {}'.format(expected_num_results))
-    fefile.write(inner_indent + "{}({});\n".format(handler_func, ", ".join(args)))
+    fefile.write(inner_indent + "return {}({});\n".format(handler_func, ", ".join(args)))
 
 def get_operand_ins(schema):
     if not schema.inputs:
@@ -707,15 +707,13 @@ def main(args):  # type: (Type[Args]) -> None
                      '//   Details can be found in doc/readonnxdefs.md\n'+
                      '//********************************************************\n\n'
                )
-        fefile.write('    '+'if (opName == "DUMMY") {\n')
+        # fefile.write('    '+'if (opName == "DUMMY") {\n')
         for domain, supportmap in operator_schemas:
             s = '## {}\n'.format(display_domain_short(domain))
             fout.write(s)
 
             for _, namemap in supportmap:
                 for op_type, schema, versions in namemap:
-                    # op_type
-                    #print("check point 1", schema.name, len(schema.inputs), len(schema.outputs))
                     gen_code(schema, fefile)
 
                     r = gen_schema(schema)
@@ -747,7 +745,6 @@ def main(args):  # type: (Type[Args]) -> None
                         s += '\n\n'
 
                     fout.write(s)
-        fefile.write('    }')
         fefile.close()
 
 
