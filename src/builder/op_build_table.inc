@@ -4,317 +4,317 @@
 //   Details can be found in doc/readonnxdefs.md
 //********************************************************
 
-    if (OpName == "DUMMY") {
-    }else if (OpName == "Abs") {
-       ImportNodeOneOut<mlir::ONNXAbsOp>(node, 1, 1);
-    }else if (OpName == "Acos") {
-       ImportNodeOneOut<mlir::ONNXAcosOp>(node, 1, 1);
-    }else if (OpName == "Acosh") {
-       ImportNodeOneOut<mlir::ONNXAcoshOp>(node, 1, 1);
-    }else if (OpName == "Add") {
-       ImportNodeOneOut<mlir::ONNXAddOp>(node, 2, 1);
-    }else if (OpName == "And") {
-       ImportNodeOneOut<mlir::ONNXAndOp>(node, 2, 1);
-    }else if (OpName == "ArgMax") {
-       ImportNodeOneOut<mlir::ONNXArgMaxOp>(node, 1, 1);
-    }else if (OpName == "ArgMin") {
-       ImportNodeOneOut<mlir::ONNXArgMinOp>(node, 1, 1);
-    }else if (OpName == "Asin") {
-       ImportNodeOneOut<mlir::ONNXAsinOp>(node, 1, 1);
-    }else if (OpName == "Asinh") {
-       ImportNodeOneOut<mlir::ONNXAsinhOp>(node, 1, 1);
-    }else if (OpName == "Atan") {
-       ImportNodeOneOut<mlir::ONNXAtanOp>(node, 1, 1);
-    }else if (OpName == "Atanh") {
-       ImportNodeOneOut<mlir::ONNXAtanhOp>(node, 1, 1);
-    }else if (OpName == "AveragePool") {
-       ImportNodeOneOut<mlir::ONNXAveragePoolOp>(node, 1, 1);
-    }else if (OpName == "BatchNormalization") {
-       ImportNodeBatchNormalization(node, 5, 5);
-    }else if (OpName == "BitShift") {
-       ImportNodeOneOut<mlir::ONNXBitShiftOp>(node, 2, 1);
-    }else if (OpName == "Cast") {
-       ImportNodeOneOut<mlir::ONNXCastOp>(node, 1, 1);
-    }else if (OpName == "Ceil") {
-       ImportNodeOneOut<mlir::ONNXCeilOp>(node, 1, 1);
-    }else if (OpName == "Clip") {
-       ImportNodeOneOut<mlir::ONNXClipOp>(node, 3, 1);
-    }else if (OpName == "Compress") {
-       ImportNodeOneOut<mlir::ONNXCompressOp>(node, 2, 1);
-    }else if (OpName == "Concat") {
-       ImportNodeOneOut<mlir::ONNXConcatOp>(node, 1, 1, true, false);
-    }else if (OpName == "ConcatFromSequence") {
-       ImportNodeOneOut<mlir::ONNXConcatFromSequenceOp>(node, 1, 1);
-    }else if (OpName == "Constant") {
-       ImportNodeOneOut<mlir::ONNXConstantOp>(node, 0, 1);
-    }else if (OpName == "ConstantOfShape") {
-       ImportNodeOneOut<mlir::ONNXConstantOfShapeOp>(node, 1, 1);
-    }else if (OpName == "Conv") {
-       ImportNodeConv(node, 3, 1);
-    }else if (OpName == "ConvInteger") {
-       ImportNodeOneOut<mlir::ONNXConvIntegerOp>(node, 4, 1);
-    }else if (OpName == "ConvTranspose") {
-       ImportNodeOneOut<mlir::ONNXConvTransposeOp>(node, 3, 1);
-    }else if (OpName == "Cos") {
-       ImportNodeOneOut<mlir::ONNXCosOp>(node, 1, 1);
-    }else if (OpName == "Cosh") {
-       ImportNodeOneOut<mlir::ONNXCoshOp>(node, 1, 1);
-    }else if (OpName == "CumSum") {
-       ImportNodeOneOut<mlir::ONNXCumSumOp>(node, 2, 1);
-    }else if (OpName == "DepthToSpace") {
-       ImportNodeOneOut<mlir::ONNXDepthToSpaceOp>(node, 1, 1);
-    }else if (OpName == "DequantizeLinear") {
-       ImportNodeOneOut<mlir::ONNXDequantizeLinearOp>(node, 3, 1);
-    }else if (OpName == "Det") {
-       ImportNodeOneOut<mlir::ONNXDetOp>(node, 1, 1);
-    }else if (OpName == "Div") {
-       ImportNodeOneOut<mlir::ONNXDivOp>(node, 2, 1);
-    }else if (OpName == "Dropout") {
-       ImportNodeMultipleOuts<mlir::ONNXDropoutOp>(node, 1, 2);
-    }else if (OpName == "DynamicQuantizeLinear") {
-       ImportNodeMultipleOuts<mlir::ONNXDynamicQuantizeLinearOp>(node, 1, 3);
-    }else if (OpName == "Elu") {
-       ImportNodeOneOut<mlir::ONNXEluOp>(node, 1, 1);
-    }else if (OpName == "Equal") {
-       ImportNodeOneOut<mlir::ONNXEqualOp>(node, 2, 1);
-    }else if (OpName == "Erf") {
-       ImportNodeOneOut<mlir::ONNXErfOp>(node, 1, 1);
-    }else if (OpName == "Exp") {
-       ImportNodeOneOut<mlir::ONNXExpOp>(node, 1, 1);
-    }else if (OpName == "Expand") {
-       ImportNodeOneOut<mlir::ONNXExpandOp>(node, 2, 1);
-    }else if (OpName == "EyeLike") {
-       ImportNodeOneOut<mlir::ONNXEyeLikeOp>(node, 1, 1);
-    }else if (OpName == "Flatten") {
-       ImportNodeOneOut<mlir::ONNXFlattenOp>(node, 1, 1);
-    }else if (OpName == "Floor") {
-       ImportNodeOneOut<mlir::ONNXFloorOp>(node, 1, 1);
-    }else if (OpName == "GRU") {
-       ImportNodeMultipleOuts<mlir::ONNXGRUOp>(node, 6, 2);
-    }else if (OpName == "Gather") {
-       ImportNodeOneOut<mlir::ONNXGatherOp>(node, 2, 1);
-    }else if (OpName == "GatherElements") {
-       ImportNodeOneOut<mlir::ONNXGatherElementsOp>(node, 2, 1);
-    }else if (OpName == "GatherND") {
-       ImportNodeOneOut<mlir::ONNXGatherNDOp>(node, 2, 1);
-    }else if (OpName == "Gemm") {
-       ImportNodeGemm(node, 3, 1);
-    }else if (OpName == "GlobalAveragePool") {
-       ImportNodeOneOut<mlir::ONNXGlobalAveragePoolOp>(node, 1, 1);
-    }else if (OpName == "GlobalLpPool") {
-       ImportNodeOneOut<mlir::ONNXGlobalLpPoolOp>(node, 1, 1);
-    }else if (OpName == "GlobalMaxPool") {
-       ImportNodeOneOut<mlir::ONNXGlobalMaxPoolOp>(node, 1, 1);
-    }else if (OpName == "Greater") {
-       ImportNodeOneOut<mlir::ONNXGreaterOp>(node, 2, 1);
-    }else if (OpName == "HardSigmoid") {
-       ImportNodeOneOut<mlir::ONNXHardSigmoidOp>(node, 1, 1);
-    }else if (OpName == "Hardmax") {
-       ImportNodeOneOut<mlir::ONNXHardmaxOp>(node, 1, 1);
-    }else if (OpName == "Identity") {
-       ImportNodeOneOut<mlir::ONNXIdentityOp>(node, 1, 1);
-    }else if (OpName == "If") {
-       ImportNodeOneOut<mlir::ONNXIfOp>(node, 1, 1);
-    }else if (OpName == "InstanceNormalization") {
-       ImportNodeOneOut<mlir::ONNXInstanceNormalizationOp>(node, 3, 1);
-    }else if (OpName == "IsInf") {
-       ImportNodeOneOut<mlir::ONNXIsInfOp>(node, 1, 1);
-    }else if (OpName == "IsNaN") {
-       ImportNodeOneOut<mlir::ONNXIsNaNOp>(node, 1, 1);
-    }else if (OpName == "LRN") {
-       ImportNodeOneOut<mlir::ONNXLRNOp>(node, 1, 1);
-    }else if (OpName == "LSTM") {
-       ImportNodeMultipleOuts<mlir::ONNXLSTMOp>(node, 8, 3);
-    }else if (OpName == "LeakyRelu") {
-       ImportNodeOneOut<mlir::ONNXLeakyReluOp>(node, 1, 1);
-    }else if (OpName == "Less") {
-       ImportNodeOneOut<mlir::ONNXLessOp>(node, 2, 1);
-    }else if (OpName == "Log") {
-       ImportNodeOneOut<mlir::ONNXLogOp>(node, 1, 1);
-    }else if (OpName == "LogSoftmax") {
-       ImportNodeOneOut<mlir::ONNXLogSoftmaxOp>(node, 1, 1);
-    }else if (OpName == "Loop") {
-       ImportNodeOneOut<mlir::ONNXLoopOp>(node, 3, 1);
-    }else if (OpName == "LpNormalization") {
-       ImportNodeOneOut<mlir::ONNXLpNormalizationOp>(node, 1, 1);
-    }else if (OpName == "LpPool") {
-       ImportNodeOneOut<mlir::ONNXLpPoolOp>(node, 1, 1);
-    }else if (OpName == "MatMul") {
-       ImportNodeOneOut<mlir::ONNXMatMulOp>(node, 2, 1);
-    }else if (OpName == "MatMulInteger") {
-       ImportNodeOneOut<mlir::ONNXMatMulIntegerOp>(node, 4, 1);
-    }else if (OpName == "Max") {
-       ImportNodeOneOut<mlir::ONNXMaxOp>(node, 1, 1, true, false);
-    }else if (OpName == "MaxPool") {
-       ImportNodeMaxPool(node, 1, 2);
-    }else if (OpName == "MaxRoiPool") {
-       ImportNodeOneOut<mlir::ONNXMaxRoiPoolOp>(node, 2, 1);
-    }else if (OpName == "MaxUnpool") {
-       ImportNodeOneOut<mlir::ONNXMaxUnpoolOp>(node, 3, 1);
-    }else if (OpName == "Mean") {
-       ImportNodeOneOut<mlir::ONNXMeanOp>(node, 1, 1, true, false);
-    }else if (OpName == "MeanVarianceNormalization") {
-       ImportNodeOneOut<mlir::ONNXMeanVarianceNormalizationOp>(node, 1, 1);
-    }else if (OpName == "Min") {
-       ImportNodeOneOut<mlir::ONNXMinOp>(node, 1, 1, true, false);
-    }else if (OpName == "Mod") {
-       ImportNodeOneOut<mlir::ONNXModOp>(node, 2, 1);
-    }else if (OpName == "Mul") {
-       ImportNodeOneOut<mlir::ONNXMulOp>(node, 2, 1);
-    }else if (OpName == "Multinomial") {
-       ImportNodeOneOut<mlir::ONNXMultinomialOp>(node, 1, 1);
-    }else if (OpName == "Neg") {
-       ImportNodeOneOut<mlir::ONNXNegOp>(node, 1, 1);
-    }else if (OpName == "NonMaxSuppression") {
-       ImportNodeOneOut<mlir::ONNXNonMaxSuppressionOp>(node, 5, 1);
-    }else if (OpName == "NonZero") {
-       ImportNodeOneOut<mlir::ONNXNonZeroOp>(node, 1, 1);
-    }else if (OpName == "Not") {
-       ImportNodeOneOut<mlir::ONNXNotOp>(node, 1, 1);
-    }else if (OpName == "OneHot") {
-       ImportNodeOneOut<mlir::ONNXOneHotOp>(node, 3, 1);
-    }else if (OpName == "Or") {
-       ImportNodeOneOut<mlir::ONNXOrOp>(node, 2, 1);
-    }else if (OpName == "PRelu") {
-       ImportNodeOneOut<mlir::ONNXPReluOp>(node, 2, 1);
-    }else if (OpName == "Pad") {
-       ImportNodePad(node, 3, 1);
-    }else if (OpName == "Pow") {
-       ImportNodeOneOut<mlir::ONNXPowOp>(node, 2, 1);
-    }else if (OpName == "QLinearConv") {
-       ImportNodeOneOut<mlir::ONNXQLinearConvOp>(node, 9, 1);
-    }else if (OpName == "QLinearMatMul") {
-       ImportNodeOneOut<mlir::ONNXQLinearMatMulOp>(node, 8, 1);
-    }else if (OpName == "QuantizeLinear") {
-       ImportNodeOneOut<mlir::ONNXQuantizeLinearOp>(node, 3, 1);
-    }else if (OpName == "RNN") {
-       ImportNodeMultipleOuts<mlir::ONNXRNNOp>(node, 6, 2);
-    }else if (OpName == "RandomNormal") {
-       ImportNodeOneOut<mlir::ONNXRandomNormalOp>(node, 0, 1);
-    }else if (OpName == "RandomNormalLike") {
-       ImportNodeOneOut<mlir::ONNXRandomNormalLikeOp>(node, 1, 1);
-    }else if (OpName == "RandomUniform") {
-       ImportNodeOneOut<mlir::ONNXRandomUniformOp>(node, 0, 1);
-    }else if (OpName == "RandomUniformLike") {
-       ImportNodeOneOut<mlir::ONNXRandomUniformLikeOp>(node, 1, 1);
-    }else if (OpName == "Range") {
-       ImportNodeOneOut<mlir::ONNXRangeOp>(node, 3, 1);
-    }else if (OpName == "Reciprocal") {
-       ImportNodeOneOut<mlir::ONNXReciprocalOp>(node, 1, 1);
-    }else if (OpName == "ReduceL1") {
-       ImportNodeOneOut<mlir::ONNXReduceL1Op>(node, 1, 1);
-    }else if (OpName == "ReduceL2") {
-       ImportNodeOneOut<mlir::ONNXReduceL2Op>(node, 1, 1);
-    }else if (OpName == "ReduceLogSum") {
-       ImportNodeOneOut<mlir::ONNXReduceLogSumOp>(node, 1, 1);
-    }else if (OpName == "ReduceLogSumExp") {
-       ImportNodeOneOut<mlir::ONNXReduceLogSumExpOp>(node, 1, 1);
-    }else if (OpName == "ReduceMax") {
-       ImportNodeOneOut<mlir::ONNXReduceMaxOp>(node, 1, 1);
-    }else if (OpName == "ReduceMean") {
-       ImportNodeOneOut<mlir::ONNXReduceMeanOp>(node, 1, 1);
-    }else if (OpName == "ReduceMin") {
-       ImportNodeOneOut<mlir::ONNXReduceMinOp>(node, 1, 1);
-    }else if (OpName == "ReduceProd") {
-       ImportNodeOneOut<mlir::ONNXReduceProdOp>(node, 1, 1);
-    }else if (OpName == "ReduceSum") {
-       ImportNodeOneOut<mlir::ONNXReduceSumOp>(node, 1, 1);
-    }else if (OpName == "ReduceSumSquare") {
-       ImportNodeOneOut<mlir::ONNXReduceSumSquareOp>(node, 1, 1);
-    }else if (OpName == "Relu") {
-       ImportNodeOneOut<mlir::ONNXReluOp>(node, 1, 1);
-    }else if (OpName == "Reshape") {
-       ImportNodeOneOut<mlir::ONNXReshapeOp>(node, 2, 1);
-    }else if (OpName == "Resize") {
-       ImportNodeOneOut<mlir::ONNXResizeOp>(node, 4, 1);
-    }else if (OpName == "ReverseSequence") {
-       ImportNodeOneOut<mlir::ONNXReverseSequenceOp>(node, 2, 1);
-    }else if (OpName == "RoiAlign") {
-       ImportNodeOneOut<mlir::ONNXRoiAlignOp>(node, 3, 1);
-    }else if (OpName == "Round") {
-       ImportNodeOneOut<mlir::ONNXRoundOp>(node, 1, 1);
-    }else if (OpName == "Scan") {
-       ImportNodeOneOut<mlir::ONNXScanOp>(node, 1, 1);
-    }else if (OpName == "Scatter") {
-       ImportNodeOneOut<mlir::ONNXScatterOp>(node, 3, 1);
-    }else if (OpName == "ScatterElements") {
-       ImportNodeOneOut<mlir::ONNXScatterElementsOp>(node, 3, 1);
-    }else if (OpName == "ScatterND") {
-       ImportNodeOneOut<mlir::ONNXScatterNDOp>(node, 3, 1);
-    }else if (OpName == "Selu") {
-       ImportNodeOneOut<mlir::ONNXSeluOp>(node, 1, 1);
-    }else if (OpName == "SequenceAt") {
-       ImportNodeOneOut<mlir::ONNXSequenceAtOp>(node, 2, 1);
-    }else if (OpName == "SequenceConstruct") {
-       ImportNodeOneOut<mlir::ONNXSequenceConstructOp>(node, 1, 1, true, false);
-    }else if (OpName == "SequenceEmpty") {
-       ImportNodeOneOut<mlir::ONNXSequenceEmptyOp>(node, 0, 1);
-    }else if (OpName == "SequenceErase") {
-       ImportNodeOneOut<mlir::ONNXSequenceEraseOp>(node, 2, 1);
-    }else if (OpName == "SequenceInsert") {
-       ImportNodeOneOut<mlir::ONNXSequenceInsertOp>(node, 3, 1);
-    }else if (OpName == "SequenceLength") {
-       ImportNodeOneOut<mlir::ONNXSequenceLengthOp>(node, 1, 1);
-    }else if (OpName == "Shape") {
-       ImportNodeOneOut<mlir::ONNXShapeOp>(node, 1, 1);
-    }else if (OpName == "Shrink") {
-       ImportNodeOneOut<mlir::ONNXShrinkOp>(node, 1, 1);
-    }else if (OpName == "Sigmoid") {
-       ImportNodeOneOut<mlir::ONNXSigmoidOp>(node, 1, 1);
-    }else if (OpName == "Sign") {
-       ImportNodeOneOut<mlir::ONNXSignOp>(node, 1, 1);
-    }else if (OpName == "Sin") {
-       ImportNodeOneOut<mlir::ONNXSinOp>(node, 1, 1);
-    }else if (OpName == "Sinh") {
-       ImportNodeOneOut<mlir::ONNXSinhOp>(node, 1, 1);
-    }else if (OpName == "Size") {
-       ImportNodeOneOut<mlir::ONNXSizeOp>(node, 1, 1);
-    }else if (OpName == "Slice") {
-       ImportNodeOneOut<mlir::ONNXSliceOp>(node, 5, 1);
-    }else if (OpName == "Softmax") {
-       ImportNodeOneOut<mlir::ONNXSoftmaxOp>(node, 1, 1);
-    }else if (OpName == "Softplus") {
-       ImportNodeOneOut<mlir::ONNXSoftplusOp>(node, 1, 1);
-    }else if (OpName == "Softsign") {
-       ImportNodeOneOut<mlir::ONNXSoftsignOp>(node, 1, 1);
-    }else if (OpName == "SpaceToDepth") {
-       ImportNodeOneOut<mlir::ONNXSpaceToDepthOp>(node, 1, 1);
-    }else if (OpName == "Split") {
-       ImportNodeOneOut<mlir::ONNXSplitOp>(node, 1, 1);
-    }else if (OpName == "SplitToSequence") {
-       ImportNodeOneOut<mlir::ONNXSplitToSequenceOp>(node, 2, 1);
-    }else if (OpName == "Sqrt") {
-       ImportNodeOneOut<mlir::ONNXSqrtOp>(node, 1, 1);
-    }else if (OpName == "Squeeze") {
-       ImportNodeOneOut<mlir::ONNXSqueezeOp>(node, 1, 1);
-    }else if (OpName == "StringNormalizer") {
-       ImportNodeOneOut<mlir::ONNXStringNormalizerOp>(node, 1, 1);
-    }else if (OpName == "Sub") {
-       ImportNodeOneOut<mlir::ONNXSubOp>(node, 2, 1);
-    }else if (OpName == "Sum") {
-       ImportNodeOneOut<mlir::ONNXSumOp>(node, 1, 1, true, false);
-    }else if (OpName == "Tan") {
-       ImportNodeOneOut<mlir::ONNXTanOp>(node, 1, 1);
-    }else if (OpName == "Tanh") {
-       ImportNodeOneOut<mlir::ONNXTanhOp>(node, 1, 1);
-    }else if (OpName == "TfIdfVectorizer") {
-       ImportNodeOneOut<mlir::ONNXTfIdfVectorizerOp>(node, 1, 1);
-    }else if (OpName == "ThresholdedRelu") {
-       ImportNodeOneOut<mlir::ONNXThresholdedReluOp>(node, 1, 1);
-    }else if (OpName == "Tile") {
-       ImportNodeOneOut<mlir::ONNXTileOp>(node, 2, 1);
-    }else if (OpName == "TopK") {
-       ImportNodeMultipleOuts<mlir::ONNXTopKOp>(node, 2, 2);
-    }else if (OpName == "Transpose") {
-       ImportNodeOneOut<mlir::ONNXTransposeOp>(node, 1, 1);
-    }else if (OpName == "Unique") {
-       ImportNodeMultipleOuts<mlir::ONNXUniqueOp>(node, 1, 4);
-    }else if (OpName == "Unsqueeze") {
-       ImportNodeOneOut<mlir::ONNXUnsqueezeOp>(node, 1, 1);
-    }else if (OpName == "Upsample") {
-       ImportNodeOneOut<mlir::ONNXUpsampleOp>(node, 2, 1);
-    }else if (OpName == "Where") {
-       ImportNodeOneOut<mlir::ONNXWhereOp>(node, 3, 1);
-    }else if (OpName == "Xor") {
-       ImportNodeOneOut<mlir::ONNXXorOp>(node, 2, 1);
+    if (opName == "DUMMY") {
+    } else if (opName == "Abs") {
+      buildOperation<mlir::ONNXAbsOp>(node);
+    } else if (opName == "Acos") {
+      buildOperation<mlir::ONNXAcosOp>(node);
+    } else if (opName == "Acosh") {
+      buildOperation<mlir::ONNXAcoshOp>(node);
+    } else if (opName == "Add") {
+      buildOperation<mlir::ONNXAddOp>(node);
+    } else if (opName == "And") {
+      buildOperation<mlir::ONNXAndOp>(node);
+    } else if (opName == "ArgMax") {
+      buildOperation<mlir::ONNXArgMaxOp>(node);
+    } else if (opName == "ArgMin") {
+      buildOperation<mlir::ONNXArgMinOp>(node);
+    } else if (opName == "Asin") {
+      buildOperation<mlir::ONNXAsinOp>(node);
+    } else if (opName == "Asinh") {
+      buildOperation<mlir::ONNXAsinhOp>(node);
+    } else if (opName == "Atan") {
+      buildOperation<mlir::ONNXAtanOp>(node);
+    } else if (opName == "Atanh") {
+      buildOperation<mlir::ONNXAtanhOp>(node);
+    } else if (opName == "AveragePool") {
+      buildOperation<mlir::ONNXAveragePoolOp>(node);
+    } else if (opName == "BatchNormalization") {
+      ImportNodeBatchNormalization(node, /* expected_num_operands = */ 5, /* expected_num_results = */ 5);
+    } else if (opName == "BitShift") {
+      buildOperation<mlir::ONNXBitShiftOp>(node);
+    } else if (opName == "Cast") {
+      buildOperation<mlir::ONNXCastOp>(node);
+    } else if (opName == "Ceil") {
+      buildOperation<mlir::ONNXCeilOp>(node);
+    } else if (opName == "Clip") {
+      buildOperation<mlir::ONNXClipOp>(node);
+    } else if (opName == "Compress") {
+      buildOperation<mlir::ONNXCompressOp>(node);
+    } else if (opName == "Concat") {
+      buildOperation<mlir::ONNXConcatOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+    } else if (opName == "ConcatFromSequence") {
+      buildOperation<mlir::ONNXConcatFromSequenceOp>(node);
+    } else if (opName == "Constant") {
+      buildOperation<mlir::ONNXConstantOp>(node);
+    } else if (opName == "ConstantOfShape") {
+      buildOperation<mlir::ONNXConstantOfShapeOp>(node);
+    } else if (opName == "Conv") {
+      ImportNodeConv(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+    } else if (opName == "ConvInteger") {
+      buildOperation<mlir::ONNXConvIntegerOp>(node);
+    } else if (opName == "ConvTranspose") {
+      buildOperation<mlir::ONNXConvTransposeOp>(node);
+    } else if (opName == "Cos") {
+      buildOperation<mlir::ONNXCosOp>(node);
+    } else if (opName == "Cosh") {
+      buildOperation<mlir::ONNXCoshOp>(node);
+    } else if (opName == "CumSum") {
+      buildOperation<mlir::ONNXCumSumOp>(node);
+    } else if (opName == "DepthToSpace") {
+      buildOperation<mlir::ONNXDepthToSpaceOp>(node);
+    } else if (opName == "DequantizeLinear") {
+      buildOperation<mlir::ONNXDequantizeLinearOp>(node);
+    } else if (opName == "Det") {
+      buildOperation<mlir::ONNXDetOp>(node);
+    } else if (opName == "Div") {
+      buildOperation<mlir::ONNXDivOp>(node);
+    } else if (opName == "Dropout") {
+      buildOperation<mlir::ONNXDropoutOp>(node);
+    } else if (opName == "DynamicQuantizeLinear") {
+      buildOperation<mlir::ONNXDynamicQuantizeLinearOp>(node);
+    } else if (opName == "Elu") {
+      buildOperation<mlir::ONNXEluOp>(node);
+    } else if (opName == "Equal") {
+      buildOperation<mlir::ONNXEqualOp>(node);
+    } else if (opName == "Erf") {
+      buildOperation<mlir::ONNXErfOp>(node);
+    } else if (opName == "Exp") {
+      buildOperation<mlir::ONNXExpOp>(node);
+    } else if (opName == "Expand") {
+      buildOperation<mlir::ONNXExpandOp>(node);
+    } else if (opName == "EyeLike") {
+      buildOperation<mlir::ONNXEyeLikeOp>(node);
+    } else if (opName == "Flatten") {
+      buildOperation<mlir::ONNXFlattenOp>(node);
+    } else if (opName == "Floor") {
+      buildOperation<mlir::ONNXFloorOp>(node);
+    } else if (opName == "GRU") {
+      buildOperation<mlir::ONNXGRUOp>(node);
+    } else if (opName == "Gather") {
+      buildOperation<mlir::ONNXGatherOp>(node);
+    } else if (opName == "GatherElements") {
+      buildOperation<mlir::ONNXGatherElementsOp>(node);
+    } else if (opName == "GatherND") {
+      buildOperation<mlir::ONNXGatherNDOp>(node);
+    } else if (opName == "Gemm") {
+      ImportNodeGemm(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+    } else if (opName == "GlobalAveragePool") {
+      buildOperation<mlir::ONNXGlobalAveragePoolOp>(node);
+    } else if (opName == "GlobalLpPool") {
+      buildOperation<mlir::ONNXGlobalLpPoolOp>(node);
+    } else if (opName == "GlobalMaxPool") {
+      buildOperation<mlir::ONNXGlobalMaxPoolOp>(node);
+    } else if (opName == "Greater") {
+      buildOperation<mlir::ONNXGreaterOp>(node);
+    } else if (opName == "HardSigmoid") {
+      buildOperation<mlir::ONNXHardSigmoidOp>(node);
+    } else if (opName == "Hardmax") {
+      buildOperation<mlir::ONNXHardmaxOp>(node);
+    } else if (opName == "Identity") {
+      buildOperation<mlir::ONNXIdentityOp>(node);
+    } else if (opName == "If") {
+      buildOperation<mlir::ONNXIfOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ -1);
+    } else if (opName == "InstanceNormalization") {
+      buildOperation<mlir::ONNXInstanceNormalizationOp>(node);
+    } else if (opName == "IsInf") {
+      buildOperation<mlir::ONNXIsInfOp>(node);
+    } else if (opName == "IsNaN") {
+      buildOperation<mlir::ONNXIsNaNOp>(node);
+    } else if (opName == "LRN") {
+      buildOperation<mlir::ONNXLRNOp>(node);
+    } else if (opName == "LSTM") {
+      buildOperation<mlir::ONNXLSTMOp>(node);
+    } else if (opName == "LeakyRelu") {
+      buildOperation<mlir::ONNXLeakyReluOp>(node);
+    } else if (opName == "Less") {
+      buildOperation<mlir::ONNXLessOp>(node);
+    } else if (opName == "Log") {
+      buildOperation<mlir::ONNXLogOp>(node);
+    } else if (opName == "LogSoftmax") {
+      buildOperation<mlir::ONNXLogSoftmaxOp>(node);
+    } else if (opName == "Loop") {
+      buildOperation<mlir::ONNXLoopOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ -1);
+    } else if (opName == "LpNormalization") {
+      buildOperation<mlir::ONNXLpNormalizationOp>(node);
+    } else if (opName == "LpPool") {
+      buildOperation<mlir::ONNXLpPoolOp>(node);
+    } else if (opName == "MatMul") {
+      buildOperation<mlir::ONNXMatMulOp>(node);
+    } else if (opName == "MatMulInteger") {
+      buildOperation<mlir::ONNXMatMulIntegerOp>(node);
+    } else if (opName == "Max") {
+      buildOperation<mlir::ONNXMaxOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+    } else if (opName == "MaxPool") {
+      ImportNodeMaxPool(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+    } else if (opName == "MaxRoiPool") {
+      buildOperation<mlir::ONNXMaxRoiPoolOp>(node);
+    } else if (opName == "MaxUnpool") {
+      buildOperation<mlir::ONNXMaxUnpoolOp>(node);
+    } else if (opName == "Mean") {
+      buildOperation<mlir::ONNXMeanOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+    } else if (opName == "MeanVarianceNormalization") {
+      buildOperation<mlir::ONNXMeanVarianceNormalizationOp>(node);
+    } else if (opName == "Min") {
+      buildOperation<mlir::ONNXMinOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+    } else if (opName == "Mod") {
+      buildOperation<mlir::ONNXModOp>(node);
+    } else if (opName == "Mul") {
+      buildOperation<mlir::ONNXMulOp>(node);
+    } else if (opName == "Multinomial") {
+      buildOperation<mlir::ONNXMultinomialOp>(node);
+    } else if (opName == "Neg") {
+      buildOperation<mlir::ONNXNegOp>(node);
+    } else if (opName == "NonMaxSuppression") {
+      buildOperation<mlir::ONNXNonMaxSuppressionOp>(node);
+    } else if (opName == "NonZero") {
+      buildOperation<mlir::ONNXNonZeroOp>(node);
+    } else if (opName == "Not") {
+      buildOperation<mlir::ONNXNotOp>(node);
+    } else if (opName == "OneHot") {
+      buildOperation<mlir::ONNXOneHotOp>(node);
+    } else if (opName == "Or") {
+      buildOperation<mlir::ONNXOrOp>(node);
+    } else if (opName == "PRelu") {
+      buildOperation<mlir::ONNXPReluOp>(node);
+    } else if (opName == "Pad") {
+      ImportNodePad(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+    } else if (opName == "Pow") {
+      buildOperation<mlir::ONNXPowOp>(node);
+    } else if (opName == "QLinearConv") {
+      buildOperation<mlir::ONNXQLinearConvOp>(node);
+    } else if (opName == "QLinearMatMul") {
+      buildOperation<mlir::ONNXQLinearMatMulOp>(node);
+    } else if (opName == "QuantizeLinear") {
+      buildOperation<mlir::ONNXQuantizeLinearOp>(node);
+    } else if (opName == "RNN") {
+      buildOperation<mlir::ONNXRNNOp>(node);
+    } else if (opName == "RandomNormal") {
+      buildOperation<mlir::ONNXRandomNormalOp>(node);
+    } else if (opName == "RandomNormalLike") {
+      buildOperation<mlir::ONNXRandomNormalLikeOp>(node);
+    } else if (opName == "RandomUniform") {
+      buildOperation<mlir::ONNXRandomUniformOp>(node);
+    } else if (opName == "RandomUniformLike") {
+      buildOperation<mlir::ONNXRandomUniformLikeOp>(node);
+    } else if (opName == "Range") {
+      buildOperation<mlir::ONNXRangeOp>(node);
+    } else if (opName == "Reciprocal") {
+      buildOperation<mlir::ONNXReciprocalOp>(node);
+    } else if (opName == "ReduceL1") {
+      buildOperation<mlir::ONNXReduceL1Op>(node);
+    } else if (opName == "ReduceL2") {
+      buildOperation<mlir::ONNXReduceL2Op>(node);
+    } else if (opName == "ReduceLogSum") {
+      buildOperation<mlir::ONNXReduceLogSumOp>(node);
+    } else if (opName == "ReduceLogSumExp") {
+      buildOperation<mlir::ONNXReduceLogSumExpOp>(node);
+    } else if (opName == "ReduceMax") {
+      buildOperation<mlir::ONNXReduceMaxOp>(node);
+    } else if (opName == "ReduceMean") {
+      buildOperation<mlir::ONNXReduceMeanOp>(node);
+    } else if (opName == "ReduceMin") {
+      buildOperation<mlir::ONNXReduceMinOp>(node);
+    } else if (opName == "ReduceProd") {
+      buildOperation<mlir::ONNXReduceProdOp>(node);
+    } else if (opName == "ReduceSum") {
+      buildOperation<mlir::ONNXReduceSumOp>(node);
+    } else if (opName == "ReduceSumSquare") {
+      buildOperation<mlir::ONNXReduceSumSquareOp>(node);
+    } else if (opName == "Relu") {
+      buildOperation<mlir::ONNXReluOp>(node);
+    } else if (opName == "Reshape") {
+      buildOperation<mlir::ONNXReshapeOp>(node);
+    } else if (opName == "Resize") {
+      buildOperation<mlir::ONNXResizeOp>(node);
+    } else if (opName == "ReverseSequence") {
+      buildOperation<mlir::ONNXReverseSequenceOp>(node);
+    } else if (opName == "RoiAlign") {
+      buildOperation<mlir::ONNXRoiAlignOp>(node);
+    } else if (opName == "Round") {
+      buildOperation<mlir::ONNXRoundOp>(node);
+    } else if (opName == "Scan") {
+      buildOperation<mlir::ONNXScanOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ -1);
+    } else if (opName == "Scatter") {
+      buildOperation<mlir::ONNXScatterOp>(node);
+    } else if (opName == "ScatterElements") {
+      buildOperation<mlir::ONNXScatterElementsOp>(node);
+    } else if (opName == "ScatterND") {
+      buildOperation<mlir::ONNXScatterNDOp>(node);
+    } else if (opName == "Selu") {
+      buildOperation<mlir::ONNXSeluOp>(node);
+    } else if (opName == "SequenceAt") {
+      buildOperation<mlir::ONNXSequenceAtOp>(node);
+    } else if (opName == "SequenceConstruct") {
+      buildOperation<mlir::ONNXSequenceConstructOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+    } else if (opName == "SequenceEmpty") {
+      buildOperation<mlir::ONNXSequenceEmptyOp>(node);
+    } else if (opName == "SequenceErase") {
+      buildOperation<mlir::ONNXSequenceEraseOp>(node);
+    } else if (opName == "SequenceInsert") {
+      buildOperation<mlir::ONNXSequenceInsertOp>(node);
+    } else if (opName == "SequenceLength") {
+      buildOperation<mlir::ONNXSequenceLengthOp>(node);
+    } else if (opName == "Shape") {
+      buildOperation<mlir::ONNXShapeOp>(node);
+    } else if (opName == "Shrink") {
+      buildOperation<mlir::ONNXShrinkOp>(node);
+    } else if (opName == "Sigmoid") {
+      buildOperation<mlir::ONNXSigmoidOp>(node);
+    } else if (opName == "Sign") {
+      buildOperation<mlir::ONNXSignOp>(node);
+    } else if (opName == "Sin") {
+      buildOperation<mlir::ONNXSinOp>(node);
+    } else if (opName == "Sinh") {
+      buildOperation<mlir::ONNXSinhOp>(node);
+    } else if (opName == "Size") {
+      buildOperation<mlir::ONNXSizeOp>(node);
+    } else if (opName == "Slice") {
+      buildOperation<mlir::ONNXSliceOp>(node);
+    } else if (opName == "Softmax") {
+      buildOperation<mlir::ONNXSoftmaxOp>(node);
+    } else if (opName == "Softplus") {
+      buildOperation<mlir::ONNXSoftplusOp>(node);
+    } else if (opName == "Softsign") {
+      buildOperation<mlir::ONNXSoftsignOp>(node);
+    } else if (opName == "SpaceToDepth") {
+      buildOperation<mlir::ONNXSpaceToDepthOp>(node);
+    } else if (opName == "Split") {
+      buildOperation<mlir::ONNXSplitOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ -1);
+    } else if (opName == "SplitToSequence") {
+      buildOperation<mlir::ONNXSplitToSequenceOp>(node);
+    } else if (opName == "Sqrt") {
+      buildOperation<mlir::ONNXSqrtOp>(node);
+    } else if (opName == "Squeeze") {
+      buildOperation<mlir::ONNXSqueezeOp>(node);
+    } else if (opName == "StringNormalizer") {
+      buildOperation<mlir::ONNXStringNormalizerOp>(node);
+    } else if (opName == "Sub") {
+      buildOperation<mlir::ONNXSubOp>(node);
+    } else if (opName == "Sum") {
+      buildOperation<mlir::ONNXSumOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+    } else if (opName == "Tan") {
+      buildOperation<mlir::ONNXTanOp>(node);
+    } else if (opName == "Tanh") {
+      buildOperation<mlir::ONNXTanhOp>(node);
+    } else if (opName == "TfIdfVectorizer") {
+      buildOperation<mlir::ONNXTfIdfVectorizerOp>(node);
+    } else if (opName == "ThresholdedRelu") {
+      buildOperation<mlir::ONNXThresholdedReluOp>(node);
+    } else if (opName == "Tile") {
+      buildOperation<mlir::ONNXTileOp>(node);
+    } else if (opName == "TopK") {
+      buildOperation<mlir::ONNXTopKOp>(node);
+    } else if (opName == "Transpose") {
+      buildOperation<mlir::ONNXTransposeOp>(node);
+    } else if (opName == "Unique") {
+      buildOperation<mlir::ONNXUniqueOp>(node);
+    } else if (opName == "Unsqueeze") {
+      buildOperation<mlir::ONNXUnsqueezeOp>(node);
+    } else if (opName == "Upsample") {
+      buildOperation<mlir::ONNXUpsampleOp>(node);
+    } else if (opName == "Where") {
+      buildOperation<mlir::ONNXWhereOp>(node);
+    } else if (opName == "Xor") {
+      buildOperation<mlir::ONNXXorOp>(node);
     }
