@@ -126,7 +126,7 @@ def onnx_attr_type_to_mlir_attr_type(t):
 
 
 #TODO: any better way to do this.
-def tblgen_type_to_cpp_type(t):
+def tblgen_attr_type_to_cpp_type(t):
     if 'I64Attr' in t:
         cpp_type = 'IntegerAttr'
     elif 'F32Attr' in t:
@@ -245,7 +245,7 @@ def get_operands_or_results(schema, is_input):
                 #TODO handle(variadic, heterogeneous) "
                 print("warning: (variadic, heterogeneous) for" + schema.name +
                       ' ' + value.name)
-            
+
         # Since output name can coincide with that of an input, we explicitly
         # append a suffix "_out" to such names for disambiguation.
         if is_input:
@@ -365,45 +365,45 @@ def gen_op_def(schema):
                 "warning: not generate custom build methods for " +
                 schema.name + " since it does not have operands.")
         else:
-            if tblgen_operand_type_to_cpp_type(list(
-                    ins.items())[0][1]) == 'ValueRange':
-                first_operand = list(ins.items())[0][0] + '[0]'
-            else:
-                first_operand = list(ins.items())[0][0]
-
             s += indent + 'let builders = [\n'
-
-            # custom builders with operands and attributes having a seperate parameter.
+            # Custom builders with operands and attributes having a seperate parameter.
             # E.g. OpBuilder<"Builder *builder, OperationState &state, Value X, Value, Y, Attribute A", [{}]>
-            s += indent * 2 + 'OpBuilder<"Builder *builder, OperationState &state'
-            for arg_name, arg_type in get_operands_or_results(
-                    schema, is_input=True).items():
-                s += ', ' + tblgen_operand_type_to_cpp_type(
-                    arg_type) + ' ' + arg_name
-            for attr_name, attr_type in get_attrs(schema).items():
-                s += ', ' + tblgen_type_to_cpp_type(
-                    attr_type) + ' ' + attr_name
+            indent = inc_indent(indent)
+            s += indent + 'OpBuilder<"Builder *builder, OperationState &state'
+            operands_dict = get_operands_or_results(schema, is_input=True)
+            for name, ty in operands_dict.items():
+                s += ', {} {}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                      name)
+            for name, ty in get_attrs(schema).items():
+                s += ', {} {}'.format(tblgen_attr_type_to_cpp_type(ty), name)
             s += '", [{\n'
-            s += indent * 3 + 'auto elementType = ' + first_operand + '.getType().cast<TensorType>().getElementType();\n'
-            s += indent * 3 + 'build(builder, state, UnrankedTensorType::get(elementType)'
-            for arg_name, _ in ins.items():
-                s += ', ' + arg_name
-            s += ');\n'
-            s += indent * 2 + '}]>,\n'
+            indent = inc_indent(indent)
 
-            # custom builders with all operands and attributes having aggregate parameters.
+            # Get output type from first operand's type.
+            first_operand_name = list(ins.items())[0][0]
+            s += indent + 'auto elementType = {}.getType().cast<TensorType>().getElementType();\n'.format(
+                first_operand_name)
+            s += indent + 'build(builder, state, UnrankedTensorType::get(elementType)'
+            for name, _ in ins.items():
+                s += ', ' + name
+            s += ');\n'
+            indent = dec_indent(indent)
+            s += indent + '}]>,\n'
+
+            # Custom builders with all operands and attributes having aggregate parameters.
             # E.g. OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent * 2 + 'OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
-            s += indent * 3 + 'auto elementType = operands[0].getType().cast<TensorType>().getElementType();\n'
-            s += indent * 3 + 'std::vector<mlir::Type> outputTypes;\n'
-            s += indent * 3 + 'outputTypes.emplace_back(UnrankedTensorType::get(elementType));\n'
-            s += indent * 3 + 'build(builder, state, outputTypes, operands, attributes);\n'
-            s += indent * 2 + '}]>'
+            s += indent + 'OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            indent = inc_indent(indent)
+            s += indent + 'auto elementType = operands[0].getType().cast<TensorType>().getElementType();\n'
+            s += indent + 'std::vector<mlir::Type> outputTypes;\n'
+            s += indent + 'outputTypes.emplace_back(UnrankedTensorType::get(elementType));\n'
+            s += indent + 'build(builder, state, outputTypes, operands, attributes);\n'
+            indent = dec_indent(indent)
+            s += indent + '}]>'
 
             s += '\n' + indent + '];\n'
 
     s += '}\n\n'
-
     return s
 
 
