@@ -102,13 +102,15 @@ private:
 // helper function to write kernel loops
 class BuildKrnlLoop {
 public:
-  BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc);
+  BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int loopNum);
+  BuildKrnlLoop(
+      ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand);
   ~BuildKrnlLoop();
 
   // Create define and optimize loop with loopNum original loops. If
   // withEmptyOptimization, the optimization is simply the identity function (no
   // optimizations).
-  void createOptimizeOp(int loopNum, bool withEmptyOptimization = true);
+  void createDefineAndOptimizeOp(bool withEmptyOptimization = true);
 
   // Push bounds (lb & up) for each of the loops, in order. It returns the index
   // associated with the loop iteration.
@@ -122,7 +124,7 @@ public:
   void createIterateOp();
   // create an optimize and iterate op, with the same loop num, bounds as
   // present in the memRefOperand.
-  void createOptimizeAndIterateOp(
+  void createDefineOptimizeAndIterateOp(
       Value memRefOperand, bool withEmptyOptimization = true);
 
   // get the (original loop) induction variable associated with the given index.
@@ -147,8 +149,9 @@ private:
   std::vector<Value> optLoops;
   KrnlIterateOperandPack *pack;
   int pushCount;
+  bool createdDefineOp;
   bool createdOptimizeOp;
-  bool createdIterOp;
+  bool createdIterateOp;
   // insertion points (opt block, iterate)
   Block *optBlock;
   Block *iterBlock;

@@ -139,23 +139,30 @@ void KrnlIterateOperandPack::pushOperandBound(mlir::Value operand) {
   _operands.emplace_back(operand);
 }
 
-BuildKrnlLoop::BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc)
-    : rewriter(rewriter), loc(loc), originalLoopNum(-1), pack(NULL),
-      pushCount(0), createdOptimizeOp(false), createdIterOp(false) {}
+BuildKrnlLoop::BuildKrnlLoop(
+    ConversionPatternRewriter &rewriter, Location loc, int loopNum)
+    : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(NULL),
+      pushCount(0), createdDefineOp(false), createdOptimizeOp(false),
+      createdIterateOp(false) {
+  if (originalLoopNum <= 0)
+    emitError(loc, "expected positive number of original loops");
+}
+
+BuildKrnlLoop::BuildKrnlLoop(
+    ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand)
+    : BuildKrnlLoop(rewriter, loc,
+          memRefOperand.getType().cast<MemRefType>().getShape().size()) {}
 
 BuildKrnlLoop::~BuildKrnlLoop() {
-  if (!createdOptimizeOp)
-    emitError(loc, "expected to create optimize op");
-  if (!createdIterOp)
+  if (!createdDefineOp)
+    emitError(loc, "expected to create define op");
+  if (!createdIterateOp)
     emitError(loc, "expected to create iteration op");
   if (pack)
     free(pack);
 }
 
-void BuildKrnlLoop::createOptimizeOp(int loopNum, bool withEmptyOptimization) {
-  originalLoopNum = loopNum;
-  if (originalLoopNum <= 0)
-    emitError(loc, "expected positive number of original loops");
+void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
   // insert define loop op
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
   originalLoops.reserve(originalLoopNum);
@@ -166,7 +173,6 @@ void BuildKrnlLoop::createOptimizeOp(int loopNum, bool withEmptyOptimization) {
       rewriter.create<KrnlOptimizeLoopsOp>(loc, originalLoopNum);
   optLoops.reserve(originalLoopNum);
   // Emit empty optimizations
-
   if (withEmptyOptimization) {
     for (auto result : optimizedLoopsOp.getResults())
       optLoops.push_back(result);
@@ -219,6 +225,9 @@ int BuildKrnlLoop::pushBounds(Value lowerBound, Value upperBound) {
 
 // create iter
 void BuildKrnlLoop::createIterateOp() {
+  if (!createdDefineOp)
+    emitError(loc, "must create define op before iterate op");
+  // Tight now, optimize (possibly empty) is mandatory. This may change
   if (!createdOptimizeOp)
     emitError(loc, "must create optimize op before iterate op");
   // have to have defined all bounds
@@ -229,13 +238,15 @@ void BuildKrnlLoop::createIterateOp() {
   // create iterate op
   auto iterateOp = rewriter.create<KrnlIterateOp>(loc, *pack);
   iterBlock = &iterateOp.bodyRegion().front();
-  createdIterOp = true;
+  createdIterateOp = true;
 }
 
-void BuildKrnlLoop::createOptimizeAndIterateOp(
+void BuildKrnlLoop::createDefineOptimizeAndIterateOp(
     Value memRefOperand, bool withEmptyOptimization) {
   int loopNum = memRefOperand.getType().cast<MemRefType>().getShape().size();
-  createOptimizeOp(loopNum, withEmptyOptimization);
+  if (originalLoopNum != loopNum)
+    emitError(loc, "mismatch in loop numbers from constructor and define");
+  createDefineAndOptimizeOp(withEmptyOptimization);
   for (int i = 0; i < originalLoopNum; ++i)
     pushBounds(0, memRefOperand, i);
   createIterateOp();
@@ -247,24 +258,5 @@ BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
     emitError(loc, "original loop index is out of bound");
   return iterBlock->getArguments()[originalLoopIndex];
 }
-
-/*
-// set insertion points
-void BuildKrnlLoop::insertInOptimizeLoopStart() {
-  rewriter.setInsertionPointToStart(optBlock);
-}
-
-void BuildKrnlLoop::insertInOptimizeLoopEnd() {
-  rewriter.setInsertionPointToEnd(optBlock);
-}
-
-void BuildKrnlLoop::insertInIterateLoopStart() {
-  rewriter.setInsertionPointToStart(iterBlock);
-}
-
-void BuildKrnlLoop::insertInIterateLoopEnd() {
-  rewriter.setInsertionPointToEnd(iterBlock);
-}
-*/
 
 } // namespace mlir
