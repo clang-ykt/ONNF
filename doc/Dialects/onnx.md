@@ -327,10 +327,10 @@ ONNX BatchNormalization operation
 #### Results:
 
 1. `Y`: memref of any type values or tensor of any type values
-1. `out_mean`: memref of any type values or tensor of any type values
-1. `out_var`: memref of any type values or tensor of any type values
-1. `saved_mean`: memref of any type values or tensor of any type values
-1. `saved_var`: memref of any type values or tensor of any type values
+1. `out_mean`: memref of any type values or tensor of any type values or none type
+1. `out_var`: memref of any type values or tensor of any type values or none type
+1. `saved_mean`: memref of any type values or tensor of any type values or none type
+1. `saved_var`: memref of any type values or tensor of any type values or none type
 
 ### onnx.BatchNormalizationTestMode (ONNXBatchNormalizationTestModeOp)
 ONNX BatchNormalization operation in test mode
@@ -476,8 +476,8 @@ ONNX Clip operation
 #### Operands:
 
 1. `input`: memref of any type values or tensor of any type values
-1. `min`: memref of any type values or tensor of any type values
-1. `max`: memref of any type values or tensor of any type values
+1. `min`: memref of any type values or tensor of any type values or none type
+1. `max`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -618,8 +618,8 @@ ONNX ConvInteger operation
 
 1. `x`: memref of any type values or tensor of any type values
 1. `w`: memref of any type values or tensor of any type values
-1. `x_zero_point`: memref of any type values or tensor of any type values
-1. `w_zero_point`: memref of any type values or tensor of any type values
+1. `x_zero_point`: memref of any type values or tensor of any type values or none type
+1. `w_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -678,7 +678,7 @@ ONNX Conv operation
 
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -720,7 +720,7 @@ ONNX ConvTranspose operation
 
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -884,7 +884,7 @@ ONNX DequantizeLinear operation
 
 1. `x`: memref of any type values or tensor of any type values
 1. `x_scale`: memref of any type values or tensor of any type values
-1. `x_zero_point`: memref of any type values or tensor of any type values
+1. `x_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -964,7 +964,7 @@ ONNX Dropout operation
 #### Results:
 
 1. `output`: memref of any type values or tensor of any type values
-1. `mask`: memref of any type values or tensor of any type values
+1. `mask`: memref of any type values or tensor of any type values or none type
 
 ### onnx.DynamicQuantizeLinear (ONNXDynamicQuantizeLinearOp)
 ONNX DynamicQuantizeLinear operation
@@ -1297,9 +1297,9 @@ ONNX GRU operation
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
 1. `R`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
-1. `sequence_lens`: memref of any type values or tensor of any type values
-1. `initial_h`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
+1. `sequence_lens`: memref of any type values or tensor of any type values or none type
+1. `initial_h`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -1315,8 +1315,8 @@ ONNX GRU operation
 
 #### Results:
 
-1. `Y`: memref of any type values or tensor of any type values
-1. `Y_h`: memref of any type values or tensor of any type values
+1. `Y`: memref of any type values or tensor of any type values or none type
+1. `Y_h`: memref of any type values or tensor of any type values or none type
 
 ### onnx.GatherElements (ONNXGatherElementsOp)
 ONNX GatherElements operation
@@ -1609,7 +1609,7 @@ ONNX Gemm operation
 
 1. `A`: memref of any type values or tensor of any type values
 1. `B`: memref of any type values or tensor of any type values
-1. `C`: memref of any type values or tensor of any type values
+1. `C`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2013,11 +2013,11 @@ ONNX LSTM operation
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
 1. `R`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
-1. `sequence_lens`: memref of any type values or tensor of any type values
-1. `initial_h`: memref of any type values or tensor of any type values
-1. `initial_c`: memref of any type values or tensor of any type values
-1. `P`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
+1. `sequence_lens`: memref of any type values or tensor of any type values or none type
+1. `initial_h`: memref of any type values or tensor of any type values or none type
+1. `initial_c`: memref of any type values or tensor of any type values or none type
+1. `P`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2033,9 +2033,9 @@ ONNX LSTM operation
 
 #### Results:
 
-1. `Y`: memref of any type values or tensor of any type values
-1. `Y_h`: memref of any type values or tensor of any type values
-1. `Y_c`: memref of any type values or tensor of any type values
+1. `Y`: memref of any type values or tensor of any type values or none type
+1. `Y_h`: memref of any type values or tensor of any type values or none type
+1. `Y_c`: memref of any type values or tensor of any type values or none type
 
 ### onnx.LeakyRelu (ONNXLeakyReluOp)
 ONNX LeakyRelu operation
@@ -2260,8 +2260,8 @@ ONNX Loop operation
 
 #### Operands:
 
-1. `M`: memref of any type values or tensor of any type values
-1. `cond`: memref of any type values or tensor of any type values
+1. `M`: memref of any type values or tensor of any type values or none type
+1. `cond`: memref of any type values or tensor of any type values or none type
 1. `v_initial`: memref of any type values or tensor of any type values
 
 #### Attributes:
@@ -2340,8 +2340,8 @@ ONNX MatMulInteger operation
 
 1. `A`: memref of any type values or tensor of any type values
 1. `B`: memref of any type values or tensor of any type values
-1. `a_zero_point`: memref of any type values or tensor of any type values
-1. `b_zero_point`: memref of any type values or tensor of any type values
+1. `a_zero_point`: memref of any type values or tensor of any type values or none type
+1. `b_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2446,7 +2446,7 @@ ONNX MaxPool operation
 #### Results:
 
 1. `Y`: memref of any type values or tensor of any type values
-1. `Indices`: memref of any type values or tensor of any type values
+1. `Indices`: memref of any type values or tensor of any type values or none type
 
 ### onnx.MaxPoolSingleOut (ONNXMaxPoolSingleOutOp)
 ONNX MaxPool operation with a single output.
@@ -2532,7 +2532,7 @@ ONNX MaxUnpool operation
 
 1. `X`: memref of any type values or tensor of any type values
 1. `I`: memref of any type values or tensor of any type values
-1. `output_shape`: memref of any type values or tensor of any type values
+1. `output_shape`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2732,9 +2732,9 @@ ONNX NonMaxSuppression operation
 
 1. `boxes`: memref of any type values or tensor of any type values
 1. `scores`: memref of any type values or tensor of any type values
-1. `max_output_boxes_per_class`: memref of any type values or tensor of any type values
-1. `iou_threshold`: memref of any type values or tensor of any type values
-1. `score_threshold`: memref of any type values or tensor of any type values
+1. `max_output_boxes_per_class`: memref of any type values or tensor of any type values or none type
+1. `iou_threshold`: memref of any type values or tensor of any type values or none type
+1. `score_threshold`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3021,7 +3021,7 @@ ONNX Pad operation
 
 1. `data`: memref of any type values or tensor of any type values
 1. `pads`: memref of any type values or tensor of any type values
-1. `constant_value`: memref of any type values or tensor of any type values
+1. `constant_value`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3078,7 +3078,7 @@ ONNX QLinearConv operation
 1. `w_zero_point`: memref of any type values or tensor of any type values
 1. `y_scale`: memref of any type values or tensor of any type values
 1. `y_zero_point`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3142,7 +3142,7 @@ ONNX QuantizeLinear operation
 
 1. `x`: memref of any type values or tensor of any type values
 1. `y_scale`: memref of any type values or tensor of any type values
-1. `y_zero_point`: memref of any type values or tensor of any type values
+1. `y_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3224,9 +3224,9 @@ ONNX RNN operation
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
 1. `R`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
-1. `sequence_lens`: memref of any type values or tensor of any type values
-1. `initial_h`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
+1. `sequence_lens`: memref of any type values or tensor of any type values or none type
+1. `initial_h`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3241,8 +3241,8 @@ ONNX RNN operation
 
 #### Results:
 
-1. `Y`: memref of any type values or tensor of any type values
-1. `Y_h`: memref of any type values or tensor of any type values
+1. `Y`: memref of any type values or tensor of any type values or none type
+1. `Y_h`: memref of any type values or tensor of any type values or none type
 
 ### onnx.RandomNormalLike (ONNXRandomNormalLikeOp)
 ONNX RandomNormalLike operation
@@ -3774,7 +3774,7 @@ ONNX Resize operation
 1. `X`: memref of any type values or tensor of any type values
 1. `roi`: memref of any type values or tensor of any type values
 1. `scales`: memref of any type values or tensor of any type values
-1. `sizes`: memref of any type values or tensor of any type values
+1. `sizes`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4392,7 +4392,7 @@ ONNX SequenceErase operation
 #### Operands:
 
 1. `input_sequence`: memref of any type values or tensor of any type values
-1. `position`: memref of any type values or tensor of any type values
+1. `position`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4417,7 +4417,7 @@ ONNX SequenceInsert operation
 
 1. `input_sequence`: memref of any type values or tensor of any type values
 1. `tensor`: memref of any type values or tensor of any type values
-1. `position`: memref of any type values or tensor of any type values
+1. `position`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4634,8 +4634,8 @@ ONNX Slice operation
 1. `data`: memref of any type values or tensor of any type values
 1. `starts`: memref of any type values or tensor of any type values
 1. `ends`: memref of any type values or tensor of any type values
-1. `axes`: memref of any type values or tensor of any type values
-1. `steps`: memref of any type values or tensor of any type values
+1. `axes`: memref of any type values or tensor of any type values or none type
+1. `steps`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4788,7 +4788,7 @@ ONNX SplitToSequence operation
 #### Operands:
 
 1. `input`: memref of any type values or tensor of any type values
-1. `split`: memref of any type values or tensor of any type values
+1. `split`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -5222,9 +5222,9 @@ ONNX Unique operation
 #### Results:
 
 1. `Y`: memref of any type values or tensor of any type values
-1. `indices`: memref of any type values or tensor of any type values
-1. `inverse_indices`: memref of any type values or tensor of any type values
-1. `counts`: memref of any type values or tensor of any type values
+1. `indices`: memref of any type values or tensor of any type values or none type
+1. `inverse_indices`: memref of any type values or tensor of any type values or none type
+1. `counts`: memref of any type values or tensor of any type values or none type
 
 ### onnx.Unsqueeze (ONNXUnsqueezeOp)
 ONNX Unsqueeze operation
