@@ -401,18 +401,6 @@ private:
   }
 
   /*!
-   * Special handle for Gemm operations.
-   */
-  void ImportNodeGemm(onnx::NodeProto node, int nIn, int nOut) {
-    int nOps = node.input().size();
-    if (nOps == 2) {
-      buildOperation<mlir::ONNXGemmNoBiasOp>(node, 2, nOut);
-    } else {
-      buildOperation<mlir::ONNXGemmOp>(node, nIn, nOut);
-    }
-  }
-
-  /*!
    * Special handle for Pad operations.
    */
   void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
