@@ -121,6 +121,7 @@ private:
   mlir::MLIRContext &context_;
   mlir::ModuleOp module_;
   mlir::OpBuilder builder_;
+  mlir::Value none_;
   // mapping between string name and symbol
   OnnxOnnfSymbolMapping frontend_symbols_;
 
@@ -329,6 +330,10 @@ private:
       }
     }
 
+    if (!variadicIn)
+      for (auto i = inputs.size(); i < expectedNumOperands; i++)
+        inputs.emplace_back(none_);
+
     std::vector<mlir::Type> outputTypes;
     for (auto item : node.output()) {
       outputTypes.push_back(
@@ -487,6 +492,9 @@ private:
       ImportInputTensorSymbol(std::get<0>(it), std::get<1>(it));
     }
 
+    // Create a NoneTyped constant.
+    none_ =
+        builder_.create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
     // Import nodes in the graph.
     for (const auto &item : graph.node()) {
       ImportNode(item);

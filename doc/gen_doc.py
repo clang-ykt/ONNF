@@ -35,7 +35,6 @@ special_op_handler = dict([
     ("Conv", "ImportNodeConv"),
     ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
-    ("Gemm", "ImportNodeGemm"),
     ("Pad", "ImportNodePad"),
     #("Transpose", "ImportNodeTranspose")
 ])
@@ -53,7 +52,7 @@ OpsWithShapeInference = [
 # Operations supporting canonicalization.
 OpsWithCanonicalizer = [
     'Add', 'Identity', 'ReduceL1', 'ReduceL2', 'ReduceLogSum',
-    'ReduceLogSumExp', 'ReduceSumSquare'
+    'ReduceLogSumExp', 'ReduceSumSquare', 'Gemm'
 ]
 
 # Add an Op in this list if the Op needs result type deduction which is required
@@ -235,9 +234,7 @@ def get_operands_or_results(schema, is_input):
             types = list(map(lambda x: x.format(elem_types), types))
 
         if OpSchema.FormalParameterOption.Optional == value.option:
-            #TODO : handle optional
-            print("warning: optional value for" + schema.name + ' ' +
-                  value.name)
+            types.append("NoneType")
         elif OpSchema.FormalParameterOption.Variadic == value.option:
             if value.isHomogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
@@ -435,7 +432,7 @@ def gen_op_importer(schema, file):
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
     args = ["node"]
-    if expected_num_operands == -1 or expected_num_results == -1 or "buildOperation" not in handler_func:
+    if expected_num_operands != -1 or expected_num_results != -1 or "buildOperation" not in handler_func:
         args.append(
             "/* expected_num_operands = */ {}".format(expected_num_operands))
         args.append(
