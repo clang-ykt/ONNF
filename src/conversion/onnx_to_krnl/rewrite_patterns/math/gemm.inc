@@ -17,7 +17,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
+    // The first predicate is unnecessary when we remove ONXGemmNoBiasOp.
+    bool hasBias = (operands.size() == 3) &&
+                   (!op->getOperand(2).getType().isa<NoneType>());
 
     Value A, B, C;
     A = operands[0];
@@ -27,10 +29,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    auto alphaAttr = FloatAttr::get(memRefType.getElementType(),
-        llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
-    auto betaAttr = FloatAttr::get(memRefType.getElementType(),
-        llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
+    auto alphaAttr =
+        FloatAttr::get(memRefType.getElementType(),
+                       llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
+    auto betaAttr =
+        FloatAttr::get(memRefType.getElementType(),
+                       llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
     auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
     auto beta = rewriter.create<ConstantOp>(loc, betaAttr);
 
@@ -68,8 +72,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Define loops.
     std::vector<Value> originalLoops;
     std::vector<Value> optimizedLoops;
-    Block *optimizationBlock = defineLoops(rewriter, loc, originalLoops,
-            optimizedLoops, numLoops);
+    Block *optimizationBlock =
+        defineLoops(rewriter, loc, originalLoops, optimizedLoops, numLoops);
 
     // We have two Krnl loops:
     // - Outer loop iterates over the output matrix dimensions, and
@@ -83,8 +87,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       outerLoops.push_back(originalLoops[i]);
       optimizedOuterLoops.push_back(optimizedLoops[i]);
     }
-    KrnlIterateOperandPack outerPack(rewriter, outerLoops,
-                                      optimizedOuterLoops);
+    KrnlIterateOperandPack outerPack(rewriter, outerLoops, optimizedOuterLoops);
     // Induction variables for the outer loops
     for (int i = 0; i < 2; ++i)
       addDimensionToPack(rewriter, loc, outerPack, alloc, i);
@@ -106,13 +109,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     int64_t K_B_Idx = (isTransB) ? 1 : 0;
     reductionPack.pushConstantBound(0);
     if (ATy.getShape()[K_A_Idx] != -1)
-        reductionPack.pushConstantBound(ATy.getShape()[K_A_Idx]);
+      reductionPack.pushConstantBound(ATy.getShape()[K_A_Idx]);
+    else if (BTy.getShape()[K_B_Idx] != -1)
+      reductionPack.pushConstantBound(BTy.getShape()[K_B_Idx]);
     else
-      if (BTy.getShape()[K_B_Idx] != -1)
-        reductionPack.pushConstantBound(BTy.getShape()[K_B_Idx]);
-      else
-        reductionPack.pushOperandBound(
-            rewriter.create<DimOp>(loc, B, K_B_Idx).getResult());
+      reductionPack.pushOperandBound(
+          rewriter.create<DimOp>(loc, B, K_B_Idx).getResult());
 
     // Get run-time dimension information for unknown dimensions used for
     // broadcasting.
@@ -210,8 +212,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXGemmOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+void populateLoweringONNXGemmOpPattern(OwningRewritePatternList &patterns,
+                                       MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
   patterns.insert<ONNXGemmOpLowering<ONNXGemmNoBiasOp>>(ctx);
 }
