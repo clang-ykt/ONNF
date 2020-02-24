@@ -177,7 +177,7 @@ struct TensorTypeConverter : public TypeConverter {
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-// math
+// `math` directory methods:
 
 void populateLoweringONNXElementwiseOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
@@ -194,7 +194,7 @@ void populateLoweringONNXReductionOpPattern(
 void populateLoweringONNXSoftmaxOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
-// nn
+// `nn` directory methods:
 
 void populateLoweringONNXConvOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
@@ -202,7 +202,7 @@ void populateLoweringONNXConvOpPattern(
 void populateLoweringONNXNormalizationOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
-// tensor
+// `tensor` directory methods:
 
 void populateLoweringONNXUnsqueezeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
