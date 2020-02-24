@@ -169,8 +169,6 @@ getReductionMapping(MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
   return OutInDimMap;
 }
 
-// aee to deprecate
-
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimenions are supported.
 static void addDimensionToPack(ConversionPatternRewriter &rewriter,
@@ -186,8 +184,6 @@ static void addDimensionToPack(ConversionPatternRewriter &rewriter,
     pack.pushConstantBound(shape[index]);
   }
 }
-
-// aee to deprecate
 
 // Function that defines the KRNL dialect loops and their respective
 // optimized version.
@@ -210,8 +206,6 @@ emitOptimizedLoops(ConversionPatternRewriter &rewriter, Location loc,
   return optimizedLoopsOp;
 }
 
-// aee to deprecate
-
 // Function that emits the loops and their optimized version.
 // The function returns a reference to the inner optimization block.
 static Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
@@ -222,8 +216,6 @@ static Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
       emitOptimizedLoops(rewriter, loc, loops, optimizedLoops, numLoops);
   return &optimizedLoopsOp.region().front();
 }
-
-// aee to deprecate
 
 // Function which emits a basic set of loops and optimized loops
 // for a given operation argument. A reference to the loop optimization

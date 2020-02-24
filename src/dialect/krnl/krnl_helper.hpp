@@ -99,10 +99,38 @@ private:
   mlir::Builder &builder;
 };
 
-// helper function to write kernel loops
+// Helper function to write kernel loops. This class will let us build a single
+// define/optimize/iterate operation combo. We can then insert optimizations in
+// the body of the optimization operation, and operations in the body of the
+// iterate operation.
+//
+// The sequence is as follow:
+//
+//   1) Create a object giving the rewriter, location, and number of loop in the
+//   original (non optimized) loop.
+//
+//   2) Create define & optimize ops (currently paired). Optimizations can then
+//   be added to the inner block of the optimize operation. Make sure to set the
+//   insertion point to that block for optimizations to go in the right place.
+//
+//   3) Push the bounds for each of the original loops. Bounds are pushed in
+//   pairs (lower & upper bounds). THere are a few methods to do it depending on
+//   the type of the bounds. When pushing bounds, the method returns a number
+//   that represent the index associated with that iteration (induction variable
+//   and bounds). That index can be used later to extract the induction variable
+//   for reference in computation and/or index calculations of mem refs.
+//
+//   4) Once all the bounds are pushed, create the iterate operation. Once this
+//   is done, we can add operations within the iterate blocks by setting the
+//   insertion point to it. Value of the induction variables can be retrieved
+//   using the proper index (determined when pushin the bounds).
+
 class BuildKrnlLoop {
 public:
+  // Create a build kernel loop for the given location and loop number.
   BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int loopNum);
+  // Do the same, but where the loop number corresponds to the dimensionality of
+  // the mem ref operand.
   BuildKrnlLoop(
       ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand);
   ~BuildKrnlLoop();
@@ -112,28 +140,34 @@ public:
   // optimizations).
   void createDefineAndOptimizeOp(bool withEmptyOptimization = true);
 
-  // Push bounds (lb & up) for each of the loops, in order. It returns the index
-  // associated with the loop iteration.
-  int pushBounds(int64_t lb, int64_t ub);
-  int pushBounds(int64_t lb, Value ub);
-  int pushBounds(int64_t lb, Value ubMemRefOperand, int ubMemRefIndex,
-      bool ubMustBeConstant = false);
-  int pushBounds(Value lb, Value ub);
+  // Push bounds (lower and upper) for each of the loops, in order. It returns
+  // the index associated with the loop iteration. This index is in the range
+  // from zero to original loop number -1, and is monotonally increasing from
+  // call to call. This index is later used in the getInductionVar call.
+  int pushBounds(int64_t lowerBound, int64_t upperBound);
+  int pushBounds(int64_t lowerBound, Value upperBound);
+  int pushBounds(Value lowerBound, Value upperBound);
+  // same, where the lower bound is an integer, and the uppoer bound is given by
+  // the size of the mem ref operand along the upperBoundMemRefIndex dimension.
+  int pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
+      int upperBoundMemRefIndex, bool upperBoundMustBeConstant = false);
 
-  // create an iterate op
+  // Create an iterate op.
   void createIterateOp();
-  // create an optimize and iterate op, with the same loop num, bounds as
-  // present in the memRefOperand.
+  // Create an define, optimize and iterate op, with the same loop nummber as
+  // the rank of the memRefOperand. The lower bound of each loops is zero, and
+  // the upper bound of each loops is the dimension given by the mem refs
   void createDefineOptimizeAndIterateOp(
       Value memRefOperand, bool withEmptyOptimization = true);
 
-  // get the (original loop) induction variable associated with the given index.
+  // Get the (original loop) induction variable associated with the given index.
   // Use the index returned when pushing the bounds.
   BlockArgument &getInductionVar(int originalLoopIndex);
 
-  // get blocks
+  // Get blocks. This allow us to set the insertion point to the inner block of
+  // the optimize and the iterate Operation
   Block *getOptimizationBlock() { return optBlock; }
-  Block *getIterationBlock() { return iterBlock; }
+  Block *getIterateBlock() { return iterBlock; }
 
   // get original or optimized loops
   std::vector<Value> &getOriginalLoops() { return originalLoops; }

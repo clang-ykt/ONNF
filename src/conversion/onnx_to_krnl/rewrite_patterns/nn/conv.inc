@@ -111,7 +111,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     int mIndex = outerLoops.pushBounds(0, kernelsPerGroup);
     // Outer loop iteration
     outerLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(outerLoops.getIterationBlock());
+    rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
     {
       // 2. Emit the body of the outer loop nest.
 
@@ -138,7 +138,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
       // 2.4 Emit loop nest over output spatial dimensions.
       //   for rX = 0 .. RX
       spatialLoops.createIterateOp();
-      rewriter.setInsertionPointToStart(spatialLoops.getIterationBlock());
+      rewriter.setInsertionPointToStart(spatialLoops.getIterateBlock());
 
       {
         // 3. Emit the body of the spatial loop nest.
@@ -149,7 +149,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
         // kernel
         resultIndices.emplace_back(kernel);
         // rX
-        for (auto arg : spatialLoops.getIterationBlock()->getArguments())
+        for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(arg);
         // Store initializer value into output location.
         rewriter.create<StoreOp>(loc, zero, alloc, resultIndices);
@@ -166,7 +166,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
 
         // 3.4 Emit inner loop nest.
         innerLoops.createIterateOp();
-        rewriter.setInsertionPointToStart(innerLoops.getIterationBlock());
+        rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
 
         {
           // 4. Emit inner loop body
