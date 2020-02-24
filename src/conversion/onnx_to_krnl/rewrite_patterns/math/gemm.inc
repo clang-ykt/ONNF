@@ -17,12 +17,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    auto has_bias = (operands.size() == 3);
+    bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
     A = operands[0];
     B = operands[1];
-    if (has_bias)
+    if (hasBias)
       C = operands[2];
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -119,7 +119,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // GemmOp supports unidirectional broadcasting from C to A*B.
     // Hence, it must be enough to get broadcasting information for C only.
     std::map<int, Value> broadcastedDimInfo;
-    if (has_bias) {
+    if (hasBias) {
       auto shape = C.getType().cast<MemRefType>().getShape();
       for (int i = 0; i < shape.size(); ++i) {
         if (shape[i] < 0) {
@@ -162,7 +162,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Compute beta*C, and add up to alpha*A*B (unidirectional broadcasting)
     auto loadedAB = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
     auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
-    if (has_bias) {
+    if (hasBias) {
       auto loopCIVs = getLoopIVsForBroadcasting(loc, rewriter, loopMNIVs, C,
                                                 broadcastedDimInfo);
       auto loadedC = rewriter.create<LoadOp>(loc, C, loopCIVs);
