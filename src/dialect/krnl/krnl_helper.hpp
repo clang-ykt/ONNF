@@ -99,9 +99,9 @@ private:
   mlir::Builder &builder;
 };
 
-+//===----------------------------------------------------------------------===//
-+// BuildKrnlLoop
-+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+// BuildKrnlLoop
+//===----------------------------------------------------------------------===//
 
 // Helper function to write kernel loops. This class will let us build a single
 // define/optimize/iterate operation combo. We can then insert optimizations in
