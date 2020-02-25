@@ -165,6 +165,7 @@ BuildKrnlLoop::~BuildKrnlLoop() {
 void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
   // insert define loop op
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
+  createdDefineOp = true;
   originalLoops.reserve(originalLoopNum);
   for (auto result : loopsOp.getResults())
     originalLoops.push_back(result);
