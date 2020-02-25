@@ -140,25 +140,19 @@ void ONNXExpOp::inferShapes() { getResult().setType(getOperand().getType()); }
 // Tanh
 /// Infer the output shape of the ONNXTanhOp. This method is required by the
 /// shape inference interface.
-void ONNXTanhOp::inferShapes() {
-  getResult().setType(getOperand().getType());
-}
+void ONNXTanhOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
 // Sinh
 /// Infer the output shape of the ONNXSinhOp. This method is required by the
 /// shape inference interface.
-void ONNXSinhOp::inferShapes() {
-  getResult().setType(getOperand().getType());
-}
+void ONNXSinhOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
 // Cosh
 /// Infer the output shape of the ONNXCoshOp. This method is required by the
 /// shape inference interface.
-void ONNXCoshOp::inferShapes() {
-  getResult().setType(getOperand().getType());
-}
+void ONNXCoshOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
 // Cos
@@ -198,9 +192,7 @@ void ONNXEluOp::inferShapes() { getResult().setType(getOperand().getType()); }
 // Relu
 /// Infer the output shape of the ONNXReluOp. This method is required by the
 /// shape inference interface.
-void ONNXReluOp::inferShapes() {
-  getResult().setType(getOperand().getType());
-}
+void ONNXReluOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
 // LeakyRelu
@@ -214,9 +206,7 @@ void ONNXLeakyReluOp::inferShapes() {
 // Selu
 /// Infer the output shape of the ONNXSeluOp. This method is required by
 /// the shape inference interface.
-void ONNXSeluOp::inferShapes() {
-  getResult().setType(getOperand().getType());
-}
+void ONNXSeluOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
 // Reciprocal
@@ -254,17 +244,13 @@ void ONNXSoftsignOp::inferShapes() {
 // Sqrt
 /// Infer the output shape of the ONNXSqrtOp. This method is required by
 /// the shape inference interface.
-void ONNXSqrtOp::inferShapes() {
-  getResult().setType(getOperand().getType());
-}
+void ONNXSqrtOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
 // Sign
 /// Infer the output shape of the ONNXSignOp. This method is required by
 /// the shape inference interface.
-void ONNXSignOp::inferShapes() {
-  getResult().setType(getOperand().getType());
-}
+void ONNXSignOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
 // Add
@@ -443,8 +429,7 @@ void ONNXMatMulOp::inferShapes() {
     // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
     // need to be removed after the multiplication but cannot be removed if all
     // sizes are 1.
-    if (lhsShape[0] != -1 && rhsShape[0] != -1 &&
-        lhsShape[0] != rhsShape[0])
+    if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
       emitError("Attempt to multiply incompatible matrices.");
     dims.emplace_back(1);
   } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
@@ -561,48 +546,11 @@ void ONNXMatMulOp::inferShapes() {
 // Gemm
 
 void ONNXGemmOp::inferShapes() {
+  bool hasBias = !getOperand(2).getType().isa<NoneType>();
   // Cannot infer shape if no shape exists.
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>() ||
-      !getOperand(2).getType().isa<RankedTensorType>())
-    return;
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  auto biasTy = getOperand(2).getType().cast<RankedTensorType>();
-
-  int64_t M, N, K_A, K_B;
-  M = (transA() == 0) ? lhsTy.getShape()[0] : lhsTy.getShape()[1];
-  K_A = (transA() == 0) ? lhsTy.getShape()[1] : lhsTy.getShape()[0];
-  N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
-  K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
-
-  if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
-    emitError("Tensor shapes mismatched.");
-  }
-
-  // Check whether bias is unidirectional broadcasting or not.
-  auto shape = biasTy.getShape();
-  int rank = shape.size();
-  if ((rank > 2) ||
-      (rank >= 1 && shape[rank - 1] != -1 && N != -1 && N != shape[rank - 1] &&
-       shape[rank - 1] != 1) ||
-      (rank == 2 && shape[rank - 2] != -1 && M != -1 && M != shape[rank - 2] &&
-       shape[rank - 2] != 1)) {
-    emitError("Bias shape mismatched.");
-  }
-
-  SmallVector<int64_t, 2> dims;
-  dims.emplace_back(M);
-  dims.emplace_back(N);
-  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
-}
-
-// GemmNoBias
-
-void ONNXGemmNoBiasOp::inferShapes() {
-  // Cannot infer shape if no shape exists.
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      (hasBias && !getOperand(2).getType().isa<RankedTensorType>()))
     return;
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
@@ -615,6 +563,20 @@ void ONNXGemmNoBiasOp::inferShapes() {
 
   if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
     emitError("Tensor shapes mismatched.");
+  }
+
+  if (hasBias) {
+    // Check whether bias is unidirectional broadcasting or not.
+    auto biasTy = getOperand(2).getType().cast<RankedTensorType>();
+    auto shape = biasTy.getShape();
+    int rank = shape.size();
+    if ((rank > 2) ||
+        (rank >= 1 && shape[rank - 1] != -1 && N != -1 &&
+         N != shape[rank - 1] && shape[rank - 1] != 1) ||
+        (rank == 2 && shape[rank - 2] != -1 && M != -1 &&
+         M != shape[rank - 2] && shape[rank - 2] != 1)) {
+      emitError("Bias shape mismatched.");
+    }
   }
 
   SmallVector<int64_t, 2> dims;
@@ -733,7 +695,6 @@ void ONNXTransposeOp::inferShapes() {
   getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
 }
 
-
 //===----------------------------------------------------------------------===//
 
 // ReduceMax
@@ -821,7 +782,8 @@ void ONNXConvNoBiasOp::inferShapes() {
   // Required attribute auto_pad defaults to NOTSET.
   auto autoPad = auto_pad();
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvNoBiasOp::group().getSExtValue(); //.getLimitedValue();
+  int64_t group =
+      ONNXConvNoBiasOp::group().getSExtValue(); //.getLimitedValue();
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (dataShape[1] != (weightShape[1] * group))
     emitError("Channel dimension mismatch.");
@@ -879,8 +841,10 @@ void ONNXConvNoBiasOp::inferShapes() {
     if (dilations.getValue().size() != nDims)
       emitError("dilations length incompatible with spatial dimensions.");
     for (int i = 0; i < nDims; ++i)
-      kernelDims[i] = (kernelDims[i] + 1) *
-          (dilations.getValue()[i]).cast<IntegerAttr>().getInt() - 1;
+      kernelDims[i] =
+          (kernelDims[i] + 1) *
+              (dilations.getValue()[i]).cast<IntegerAttr>().getInt() -
+          1;
   }
 
   // Subtract kernel dimensions from input data dimensions.
@@ -926,8 +890,7 @@ void ONNXConvNoBiasOp::inferShapes() {
     if (strides.getValue().size() != nDims)
       emitError("strides length incompatible with spatial dimensions.");
     for (int i = 0; i < nDims; ++i) {
-      int64_t stride =
-          strides.getValue()[i].cast<IntegerAttr>().getInt();
+      int64_t stride = strides.getValue()[i].cast<IntegerAttr>().getInt();
       outSpatialDims[i] = floor(outSpatialDims[i] / stride);
     }
   }
@@ -984,7 +947,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   auto xRank = xShape.size();
 
   // 2) analyse parameters
-  // get kernel sizes from kernel_shape attribute 
+  // get kernel sizes from kernel_shape attribute
   auto kernelShape = kernel_shape();
   if (!kernelShape)
     emitError("kernel_shape is a mandatory attribute for which there is no default.");
@@ -1069,7 +1032,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     defaultPads = true;
   } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
     // init pad with zero
-    for(int i=0; i<2*kernelRank; ++i) {
+    for (int i = 0; i < 2 * kernelRank; ++i) {
       actualPads.emplace_back(0);
     }
     for(int i=0; i<kernelRank; ++i) {
@@ -1086,7 +1049,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
         if (autoPad == "SAME_UPPER") {
           actualPads[kernelRank + i] += 1;
         } else {
-          actualPads[i] += 1;          
+          actualPads[i] += 1;
         }
       }
     }
@@ -1095,7 +1058,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   }
   // handle case where default pad values must be used
   if (defaultPads) {
-    for(int i=0; i<2*kernelRank; ++i) {
+    for (int i = 0; i < 2 * kernelRank; ++i) {
       actualPads.emplace_back(0);
     }
   }
@@ -1108,7 +1071,7 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
     auto_padAttr(defaultAutoPadAttr);
   }
 
-  // initialize output shape 
+  // initialize output shape
   SmallVector<int64_t, 4> yShape(xShape.begin(), xShape.end());
   // for all kernel dimensions
   for(int i=0; i<kernelRank; ++i) {
